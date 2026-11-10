@@ -40,25 +40,15 @@ class LiveGitHubOAuthProvider implements GitHubOAuthProvider {
     });
 
     if (!tokenRes.ok) {
-      const errText = await tokenRes.text().catch(() => '');
-      throw new AppError(
-        502,
-        'GITHUB_TOKEN_EXCHANGE_FAILED',
-        `Failed to exchange code with GitHub: ${errText || tokenRes.statusText}`
-      );
+      throw new AppError(502, 'GITHUB_TOKEN_EXCHANGE_FAILED', 'Failed to exchange code with GitHub');
     }
 
-    const tokenData = (await tokenRes.json()) as {
-      access_token?: string;
-      error?: string;
-      error_description?: string;
-    };
+    const tokenData = (await tokenRes.json()) as { access_token?: string; error?: string };
     if (!tokenData.access_token) {
-      const desc = tokenData.error_description;
       throw new AppError(
         401,
         'GITHUB_INVALID_CODE',
-        desc ? `${tokenData.error}: ${desc}` : tokenData.error || 'GitHub rejected the authorization code'
+        tokenData.error || 'GitHub rejected the authorization code'
       );
     }
 
@@ -70,12 +60,7 @@ class LiveGitHubOAuthProvider implements GitHubOAuthProvider {
 
     const userRes = await fetch('https://api.github.com/user', { headers: ghHeaders });
     if (!userRes.ok) {
-      const errText = await userRes.text().catch(() => '');
-      throw new AppError(
-        502,
-        'GITHUB_PROFILE_FETCH_FAILED',
-        `Failed to fetch GitHub user profile: ${errText || userRes.statusText}`
-      );
+      throw new AppError(502, 'GITHUB_PROFILE_FETCH_FAILED', 'Failed to fetch GitHub user profile');
     }
 
     const ghUser = (await userRes.json()) as {

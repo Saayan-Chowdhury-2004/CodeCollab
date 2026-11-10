@@ -53,10 +53,10 @@ export async function runSeed() {
   try {
     const adminPassword =
       process.env.SEED_ADMIN_PASSWORD ||
-      (env.NODE_ENV === 'production' && env.LOCAL_DEMO !== 'true'
+      (env.NODE_ENV === 'production'
         ? crypto.randomBytes(16).toString('hex')
         : 'AdminPass123!');
-    if (env.NODE_ENV === 'production' && !process.env.SEED_ADMIN_PASSWORD && env.LOCAL_DEMO !== 'true') {
+    if (env.NODE_ENV === 'production' && !process.env.SEED_ADMIN_PASSWORD) {
       logger.info({ adminPassword }, 'Temporary production seed admin password generated');
     }
 
