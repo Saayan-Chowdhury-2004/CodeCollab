@@ -135,11 +135,6 @@ export default function App() {
       if (targetSnippetId) {
         setActiveView('workspace');
         await selectSnippet(targetSnippetId);
-      } else {
-        const available = useSnippetStore.getState().items;
-        if (available.length > 0 && !useSnippetStore.getState().activeSnippet) {
-          await selectSnippet(available[0].id);
-        }
       }
     })();
 

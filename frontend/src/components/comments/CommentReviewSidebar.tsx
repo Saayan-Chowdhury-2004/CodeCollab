@@ -145,6 +145,10 @@ export const CommentReviewSidebar: React.FC<CommentReviewSidebarProps> = ({
     setActiveTab(tab);
   };
 
+  if (!activeSnippet) {
+    return null;
+  }
+
   const toggleDiff = (threadId: string) => {
     setExpandedDiffs((prev) => ({ ...prev, [threadId]: !prev[threadId] }));
   };
@@ -164,7 +168,7 @@ export const CommentReviewSidebar: React.FC<CommentReviewSidebarProps> = ({
 
   const handleCreateTopLevelComment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newCommentBody.trim() || !user || !activeSnippet) return;
+    if (!newCommentBody.trim() || !user) return;
     setIsSubmitting(true);
     setActionError(null);
     try {
@@ -181,7 +185,7 @@ export const CommentReviewSidebar: React.FC<CommentReviewSidebarProps> = ({
   };
 
   const handleCreateReply = async (parentComment: CommentDTO) => {
-    if (!replyBody.trim() || !user || !activeSnippet) return;
+    if (!replyBody.trim() || !user) return;
     setIsSubmitting(true);
     setActionError(null);
     try {
@@ -200,7 +204,7 @@ export const CommentReviewSidebar: React.FC<CommentReviewSidebarProps> = ({
   };
 
   const handleSaveEdit = async (commentId: string) => {
-    if (!editBody.trim() || !activeSnippet) return;
+    if (!editBody.trim()) return;
     setActionError(null);
     try {
       await updateComment(activeSnippet.id, commentId, editBody.trim());
@@ -212,7 +216,7 @@ export const CommentReviewSidebar: React.FC<CommentReviewSidebarProps> = ({
   };
 
   const canResolveThread = (thread: CommentDTO): boolean => {
-    if (!user || !activeSnippet) return false;
+    if (!user) return false;
     if (
       activeSnippet.effectiveRole === 'admin' ||
       activeSnippet.effectiveRole === 'owner' ||
@@ -225,9 +229,8 @@ export const CommentReviewSidebar: React.FC<CommentReviewSidebarProps> = ({
 
   const canDeleteComment = (c: CommentDTO): boolean => {
     if (!user) return false;
-    if (c.authorId === user.id) return true;
-    if (!activeSnippet) return false;
     return (
+      c.authorId === user.id ||
       activeSnippet.effectiveRole === 'admin' ||
       activeSnippet.effectiveRole === 'owner'
     );
@@ -281,7 +284,7 @@ export const CommentReviewSidebar: React.FC<CommentReviewSidebarProps> = ({
             >
               <div className="flex items-center gap-1.5">
                 <GitBranch className="w-3.5 h-3.5" />
-                <span>Versions ({activeSnippet?.latestVersionNumber ?? 0})</span>
+                <span>Versions ({activeSnippet.latestVersionNumber})</span>
               </div>
             </button>
 
@@ -296,7 +299,7 @@ export const CommentReviewSidebar: React.FC<CommentReviewSidebarProps> = ({
             >
               <div className="flex items-center gap-1.5">
                 <Users className="w-3.5 h-3.5" />
-                <span>Team ({(activeSnippet?.collaborators?.length ?? 0) + (activeSnippet ? 1 : 0)})</span>
+                <span>Team ({(activeSnippet.collaborators?.length ?? 0) + 1})</span>
               </div>
             </button>
 
@@ -329,17 +332,7 @@ export const CommentReviewSidebar: React.FC<CommentReviewSidebarProps> = ({
         )}
       </div>
 
-      {!activeSnippet ? (
-        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-[var(--ink-muted)]">
-          <MessageSquare className="w-8 h-8 opacity-40 mb-3" />
-          <p className="text-xs font-medium text-[var(--ink)]">No snippet selected</p>
-          <p className="text-[11px] mt-1 text-[var(--ink-muted)] max-w-xs">
-            Select a snippet from the explorer or create a new one to view comments, versions, and collaborators.
-          </p>
-        </div>
-      ) : (
-        <>
-          {activeTab === 'comments' && (
+      {activeTab === 'comments' && (
         <>
           {/* 2. Filter Pills + Line Anchor Chip (no scrollbar, single seamless flow) */}
           <div className="p-3 space-y-2.5 shrink-0">
@@ -995,8 +988,6 @@ export const CommentReviewSidebar: React.FC<CommentReviewSidebarProps> = ({
             </div>
           )}
         </div>
-      )}
-        </>
       )}
     </aside>
   );
