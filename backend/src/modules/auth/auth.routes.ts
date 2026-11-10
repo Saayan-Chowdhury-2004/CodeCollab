@@ -30,6 +30,7 @@ import {
 } from './auth.service.ts';
 import { AppError } from '../../utils/errors.ts';
 import { env, isGitHubConfigured } from '../../config/env.ts';
+import { logger } from '../../config/logger.ts';
 
 export const authRouter = Router();
 
@@ -411,6 +412,7 @@ authRouter.get(
       });
       return res.status(200).type('html').send(html);
     } catch (err) {
+      logger.error({ err }, 'GitHub OAuth callback failed');
       const appErr =
         err instanceof AppError
           ? err
