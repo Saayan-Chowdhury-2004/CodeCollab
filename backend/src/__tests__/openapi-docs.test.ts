@@ -42,6 +42,7 @@ describe('Phase 9 — OpenAPI (/api/docs), Documentation & Infrastructure Artifa
     const rootDir = path.resolve(import.meta.dirname, '../../..');
     const requiredFiles = [
       'docs/ARCHITECTURE.md',
+      'docs/PROGRESS.md',
       'docs/REALTIME.md',
       'README.md',
       'backend/Dockerfile',

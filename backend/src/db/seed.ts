@@ -1,5 +1,4 @@
 import crypto from 'crypto';
-import { pathToFileURL } from 'node:url';
 import bcrypt from 'bcryptjs';
 import { eq, sql } from 'drizzle-orm';
 import { db } from './index.ts';
@@ -483,7 +482,7 @@ export async function runSeed() {
 }
 
 // Allow running directly via `tsx backend/src/db/seed.ts`
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   runSeed()
     .then((summary) => {
       console.log('Seed completed:', JSON.stringify(summary));

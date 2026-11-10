@@ -1,100 +1,101 @@
 # Architecture Specification — Collaborative Code Snippet Sharing & Review Platform
 
-## 1. Monorepo Structure & Workspace Layout
+## 1. Environment Capabilities, Constraints & Hybrid Workspace Layout
 
-CodeCollab is organized as an **npm workspaces monorepo** with independent `/frontend` and `/backend` packages, unified development scripts, and production container configurations:
+### 1.1 What Breaks with Purely Disconnected `/frontend` and `/backend` in AI Studio
+In this environment, three platform-level constraints affect a naive two-folder setup:
+1. **Single-Port Preview Proxy (Port 3000 Only)**: The AI Studio preview iframe connects exclusively to port `3000` on the container (`https://ais-dev-...run.app`). Running Vite on port `5173` and Express on port `4000` as separate processes breaks in the preview iframe because the browser cannot reach port `4000` directly.
+2. **Root Dependency Management (`install_applet_package`)**: The environment's package installer and build verifier operate against the root `/package.json` and root `/node_modules`.
+3. **Managed Cloud SQL DDL Execution (`UpdateSchema` RPC)**: When using the built-in Cloud SQL for PostgreSQL instance, the runtime user (`SQL_USER`) has DML (`SELECT`, `INSERT`, `UPDATE`, `DELETE`) permissions only; DDL schema changes (`CREATE TABLE`, `CREATE INDEX`, `ALTER TABLE`) are executed by `SQL_ADMIN_USER` via the platform's `UpdateSchema` tool, which looks for `src/db/schema.ts` and `src/db/drizzle.config.ts`.
+
+### 1.2 Working Hybrid Layout (Satisfies Both AI Studio Preview & Clean-Clone / Docker Compose)
+To guarantee that the project runs natively on port `3000` inside AI Studio **and** runs from a clean git clone or `docker-compose up` with independent `/frontend` and `/backend` builds, we use an **npm workspaces monorepo** with a thin root port-3000 adapter:
 
 ```text
 /
-├── package.json                  # Root npm workspaces (["frontend", "backend"]) + build/lint/test scripts
-├── tsconfig.json                 # Root TypeScript configuration
-├── .env.example                  # Documented root environment template
-├── docker-compose.yml            # Multi-container production deployment (Postgres, backend, frontend)
-├── docker-compose.dev.yml        # Development environment (PostgreSQL 16 only)
-├── .github/workflows/ci.yml      # CI workflow running lint, typecheck, tests, and build
+├── package.json                  # Root npm workspaces (["frontend", "backend"]) + unified & split scripts
+├── tsconfig.json                 # Root TypeScript project references / base config
+├── vite.config.ts                # Vite config serving /frontend (and root index.html entry bridge)
+├── server.ts                     # AI Studio Port 3000 unified entrypoint (Express + Socket.io + Vite middleware)
+├── .env.example                  # Root documented environment variables
+├── docker-compose.yml            # Standalone Postgres 16 + backend + frontend services (Phase 9)
+├── .github/workflows/ci.yml      # GitHub Actions lint + typecheck + test pipeline (Phase 9)
 ├── docs/
-│   ├── ARCHITECTURE.md           # System architecture, data model, RBAC matrix, and API specs
-│   └── REALTIME.md               # Socket.io & Yjs collaboration protocol specification
+│   ├── ARCHITECTURE.md           # System architecture, schema, auth matrix, API & socket specs
+│   ├── PROGRESS.md               # Phase-by-phase build & verification log
+│   └── REALTIME.md               # Exhaustive Socket.io & Yjs protocol documentation (Phase 9)
+├── src/
+│   └── db/
+│       ├── schema.ts             # Re-exports ../../backend/src/db/schema.ts for AI Studio UpdateSchema RPC
+│       └── drizzle.config.ts     # Drizzle Kit admin config for AI Studio Cloud SQL UpdateSchema RPC
 ├── backend/
-│   ├── package.json              # Backend package manifest and script targets
+│   ├── package.json              # Standalone backend package manifest & scripts (dev, build, test, migrate, seed)
 │   ├── tsconfig.json             # Backend TypeScript configuration
-│   ├── .env.example              # Backend environment variable template
-│   ├── Dockerfile                # Multi-stage production container build
-│   ├── drizzle.config.ts         # Drizzle Kit configuration reading DATABASE_URL or SQL_* vars
-│   ├── drizzle/                  # Committed SQL migration files (0000_init.sql)
+│   ├── .env.example              # Backend environment template
+│   ├── Dockerfile                # Standalone backend container build (Phase 9)
+│   ├── drizzle.config.ts         # Standalone Drizzle Kit config reading DATABASE_URL or SQL_* vars
+│   ├── drizzle/                  # Committed SQL migration files (0000_init.sql, etc.)
 │   └── src/
-│       ├── index.ts              # HTTP + Socket.io server bootstrap
-│       ├── app.ts                # Express app factory (helmet, CORS, pino-http, routes, errors)
+│       ├── index.ts              # Standalone backend HTTP + Socket.io server entry (for Docker / separate run)
+│       ├── app.ts                # Express app factory (helmet, CORS, pino-http, routes, error handler)
 │       ├── config/
-│       │   ├── env.ts            # Zod environment schema validation and normalization
-│       │   └── logger.ts         # Pino structured logger correlated with X-Request-Id
+│       │   ├── env.ts            # Zod fail-fast boot validation (normalizes DATABASE_URL & SQL_* vars)
+│       │   └── logger.ts         # Pino structured logger with requestId correlation
 │       ├── db/
-│       │   ├── index.ts          # PostgreSQL pool connection and Drizzle client instance
-│       │   ├── schema.ts         # Drizzle schema (11 tables, FKs, indexes, tsvector)
-│       │   └── seed.ts           # Idempotent development seed script
+│       │   ├── index.ts          # Lazy pg.Pool + Drizzle instance (works with DATABASE_URL or SQL_* object)
+│       │   ├── schema.ts         # Canonical Drizzle schema (all 10 tables, FKs, indexes, tsvector)
+│       │   ├── migrate.ts        # Programmatic migration / tsvector trigger & GIN index verifier
+│       │   └── seed.ts           # Idempotent seed script (1 admin, 2 editors, 1 viewer, snippets, versions, comments)
 │       ├── auth/
-│       │   ├── authorize.ts      # Central authorization engine (global + snippet RBAC)
-│       │   ├── jwt.ts            # JWT access token generation and verification
-│       │   ├── refresh.ts        # Opaque refresh token generation, SHA-256 hashing, family reuse detection
-│       │   ├── transport.ts      # Token transport abstraction (bearer | cookie)
-│       │   ├── password.ts       # bcrypt password hashing and verification
-│       │   └── github-oauth.ts   # GitHub OAuth flow, state verification, postMessage popup
+│       │   ├── authorize.ts      # SINGLE central authorization module (enforces global + snippet roles on REST & WS)
+│       │   ├── jwt.ts            # 15m access token sign/verify
+│       │   ├── refresh.ts        # Opaque token generation, SHA-256 hashing, family rotation & reuse revocation
+│       │   ├── transport.ts      # Swappable token transport (AUTH_TRANSPORT=bearer|cookie)
+│       │   ├── password.ts       # bcrypt password hashing & verification
+│       │   └── github-oauth.ts   # GitHub OAuth URL builder, CSRF state signing, code exchange, postMessage HTML
 │       ├── middleware/
-│       │   ├── request-id.ts     # X-Request-Id propagation and child logger binding
-│       │   ├── authenticate.ts   # Token extraction and req.user population
-│       │   ├── validate.ts       # Zod schema request validation middleware
-│       │   ├── rate-limit.ts     # IP and compound-key rate limiters
-│       │   └── error-handler.ts  # Standardized JSON error response handler
+│       │   ├── request-id.ts     # Assigns/propagates X-Request-Id and binds to Pino child logger
+│       │   ├── authenticate.ts   # Extracts token via transport.ts and populates req.user
+│       │   ├── validate.ts       # Zod request (body, query, params) validation middleware
+│       │   ├── rate-limit.ts     # General API rate limiter + strict auth endpoint rate limiter
+│       │   └── error-handler.ts  # Consistent { error: { code, message, details? } } formatter
 │       ├── modules/
-│       │   ├── auth/             # Authentication routes, schemas, and controllers
-│       │   ├── users/            # Profile updates, password changes, admin role management
-│       │   ├── snippets/         # Snippet CRUD, visibility, collaborators, versions, diffs
-│       │   ├── search/           # tsvector full-text search, rank, headline, facets
-│       │   ├── comments/         # Line-anchored threaded comments, resolution, outdated markers
-│       │   ├── notifications/    # MailService (console/smtp) and in-app notifications
-│       │   └── activity/         # Domain event bus and activity feed streams
+│       │   ├── auth/             # Auth routes, schemas, controller, service
+│       │   ├── users/            # Profile edit, password change, admin role management
+│       │   ├── snippets/         # Snippet CRUD, visibility, tags, collaborators, versions, restore, diff
+│       │   ├── search/           # PostgreSQL tsvector + GIN websearch_to_tsquery, ts_rank_cd, ts_headline, cursor pagination
+│       │   ├── comments/         # Line-anchored threaded comments, resolve/unresolve, outdated detection
+│       │   ├── notifications/    # MailService interface (ConsoleMailService + SmtpMailService) & in-app notifications
+│       │   └── activity/         # Internal EventBus + persisted activity feeds (global public, snippet, user)
 │       ├── realtime/
-│       │   ├── socket-server.ts  # Socket.io setup, handshake auth, room lifecycle, expiry sweeps
-│       │   ├── yjs-room-hub.ts   # In-memory Y.Doc management, viewer write-block, DB flush
-│       │   └── socket-limiter.ts # Token-bucket event rate limiter
-│       └── __tests__/            # Backend integration and unit test suites
+│       │   ├── socket-server.ts  # Socket.io server setup, handshake auth, per-event auth & expiry re-check
+│       │   ├── yjs-room-hub.ts   # In-memory Y.Doc room manager, viewer write-block, periodic & empty-room DB flush
+│       │   └── socket-limiter.ts # Per-socket token-bucket event rate limiter
+│       └── __tests__/            # Vitest + Supertest integration & unit test suites
 └── frontend/
-    ├── package.json              # Frontend package manifest and script targets
+    ├── package.json              # Standalone frontend package manifest & scripts
     ├── tsconfig.json             # Frontend TypeScript configuration
-    ├── .env.example              # Frontend environment variable template
-    ├── Dockerfile                # Multi-stage production container build (Nginx)
-    ├── nginx.conf                # Nginx reverse proxy, SPA fallback, and security headers
-    ├── vite.config.ts            # Vite configuration with Tailwind CSS v4 and Monaco aliases
-    ├── index.html                # Single-page HTML entrypoint
+    ├── .env.example              # Frontend environment template (VITE_API_URL, VITE_AUTH_TRANSPORT)
+    ├── Dockerfile                # Standalone frontend build (Phase 9)
     └── src/
-        ├── main.tsx              # React 19 entrypoint
-        ├── App.tsx               # App shell, responsive drawers, and view routing
-        ├── index.css             # Tailwind v4 theme tokens, frosted glass, and custom scrollbars
+        ├── main.tsx              # React 19 root mount
+        ├── App.tsx               # Application shell & router
         ├── api/
-        │   ├── client.ts         # Fetch API client with automatic token refresh
-        │   └── transport.ts      # Client-side auth session and header transport
+        │   ├── client.ts         # Fetch client with automatic 401 refresh rotation via transport.ts
+        │   └── transport.ts      # Client-side token transport (memory access token + sessionStorage refresh token)
         ├── store/
-        │   ├── authStore.ts      # Zustand auth state slice
-        │   ├── snippetStore.ts   # Zustand snippet, version, and filter state slice
-        │   ├── realtimeStore.ts  # Zustand presence, comments, and activity state slice
-        │   └── themeStore.ts     # Light and dark theme persistence
-        ├── types/
-        │   └── domain.ts         # Shared frontend DTO interfaces and types
-        ├── utils/
-        │   ├── binary.ts         # Base64 <-> Uint8Array conversion helpers
-        │   ├── format.ts         # Timestamp, role, and language display formatters
-        │   └── landingRouting.ts # First-time landing page routing logic
+        │   ├── authStore.ts      # Zustand auth state
+        │   ├── snippetStore.ts   # Zustand snippet, filter, search & version state
+        │   └── realtimeStore.ts  # Zustand active collaborators, socket status & notifications state
         ├── components/
-        │   ├── layout/           # AppShell, IconRail, ShellHeader, navConfig
-        │   ├── landing/          # LandingView, Hero, Illustration, HowItWorks, Features, Cta, Footer
-        │   ├── snippets/         # SnippetExplorerSidebar, SidebarProfileBlock, SidebarFacetsTree, SnippetModals
-        │   ├── editor/           # CollaborativeMonacoWorkspace, VersionHistoryDiffModal, WorkspaceStatStrip
-        │   ├── comments/         # CommentReviewSidebar
-        │   ├── activity/         # ActivityFeedView
-        │   ├── admin/            # AdminUsersView
-        │   ├── auth/             # AuthModals
-        │   └── ui/               # CustomSelect
-        └── __tests__/            # Frontend unit and routing test suites
+        │   ├── layout/           # Navbar, Sidebar, NotificationBell, Toast/ErrorBoundary
+        │   ├── auth/             # LoginModal, RegisterModal, GitHubOAuthPopupButton
+        │   ├── snippets/         # SnippetList, SearchFilterBar, SnippetCard, CreateSnippetModal, CollaboratorModal
+        │   ├── editor/           # CollaborativeMonacoEditor (Yjs + y-monaco + remote cursors), VersionHistoryDiffModal
+        │   ├── comments/         # LineCommentGutter, CommentThreadSidebar, OutdatedBadge
+        │   ├── activity/         # ActivityFeedPanel (Global, Snippet, User tabs)
+        │   └── admin/            # AdminUserRoleTable, ProfileSettingsModal
+        └── __tests__/            # Frontend unit/component tests
 ```
 
 ---
@@ -224,14 +225,6 @@ CodeCollab is organized as an **npm workspaces monorepo** with independent `/fro
     - `created_at`: `timestamptz` NOT NULL DEFAULT `now()`
     - *Indexes*: `notifications_recipient_id_idx`, `notifications_created_at_idx`
 
-11. **`oauth_states`**
-    - `nonce`: `text` PK
-    - `origin`: `text` NOT NULL
-    - `expires_at`: `timestamptz` NOT NULL
-    - `consumed_at`: `timestamptz` NULLABLE
-    - `created_at`: `timestamptz` NOT NULL DEFAULT `now()`
-    - *Indexes*: `oauth_states_expires_at_idx`
-
 ### 2.3 Full-Text Search `tsvector` + `GIN` Index Implementation Note
 Drizzle ORM's `pg-core` supports custom column types via `customType<{ data: string }>({ dataType: () => 'tsvector' })`. Whenever a snippet's `title`, `tags_text`, or `current_content` is inserted or updated, we compute the weighted `search_vector` directly in SQL:
 ```sql
@@ -305,10 +298,11 @@ All permission checks in both Express route handlers and Socket.io event handler
   - Server sets `refresh_token` in an `httpOnly` cookie (`Secure`, `SameSite` configurable via `COOKIE_SAME_SITE=lax|strict|none`) and accepts it on `/api/auth/refresh` and `/api/auth/logout`.
 
 ### 4.3 GitHub OAuth Popup Flow
-1. Client opens popup window navigating to `GET /api/auth/github/start?origin=<app_origin>`.
-2. Backend validates `origin` against the allowlist, creates an HMAC-signed state nonce in `oauth_states`, sets an `httpOnly`, `SameSite=Lax`, `path=/api/auth` cookie, and redirects to GitHub.
-3. GitHub redirects the popup to `GET /api/auth/github/callback?code=...&state=...`.
-4. Server verifies the signed `state`, exchanges `code` for a GitHub access token, fetches profile and verified email, upserts user, issues tokens, and renders a page whose external script posts the result to the opener with a strict target origin and also broadcasts over a same-origin `BroadcastChannel` as a fallback.
+1. Client requests `GET /api/auth/github/url`, which generates an HMAC-signed CSRF `state` token and returns the GitHub authorize URL (`https://github.com/login/oauth/authorize?client_id=...&redirect_uri=...&scope=read:user,user:email&state=...`).
+2. Client opens that URL directly via `window.open(url, 'github_oauth', 'width=600,height=700')`.
+3. GitHub redirects the popup to `GET /api/auth/github/callback?code=...&state=...` (configured via `GITHUB_CALLBACK_URL`).
+4. Server verifies the signed `state`, exchanges `code` for a GitHub access token, fetches the GitHub user profile + primary email, upserts the user in PostgreSQL, issues an access JWT + refresh token family, and responds with a minimal self-closing HTML document that executes `window.opener.postMessage({ type: 'OAUTH_AUTH_SUCCESS', payload: { accessToken, refreshToken, user } }, targetOrigin)`.
+5. Both opener and popup validate `origin` against the configured allowlist (`APP_URL` / `CORS_ORIGINS`).
 
 ---
 
@@ -317,21 +311,17 @@ All permission checks in both Express route handlers and Socket.io event handler
 All list endpoints support cursor pagination (`?cursor=<opaque_base64>&limit=<1..100>`) and return `{ items: T[], nextCursor: string | null, hasMore: boolean }`. All errors return `{ error: { code: string, message: string, details?: unknown } }`.
 
 ### 5.1 System & Health
-- `GET /api/health` — Basic health check (`{ status: 'ok', db: 'connected', timestamp, requestId }`).
-- `GET /api/health/ready` — Detailed readiness probe evaluating database connectivity, migration status, and runtime environment (supports `HEALTH_CHECK_SECRET`).
-- `GET /api/docs` — Swagger UI interactive API documentation.
-- `GET /api/docs.json` — Raw OpenAPI 3.0.3 specification in JSON format.
+- `GET /api/health` — Returns `{ status: 'ok', db: 'connected', timestamp, requestId }`.
+- `GET /api/docs` — Swagger UI / OpenAPI 3.0 specification (Phase 9).
 
 ### 5.2 Auth (`/api/auth`)
-- `GET /api/auth/providers` — Return configured authentication providers (`{ github: boolean, passwordLogin: boolean }`).
 - `POST /api/auth/register` — Register new user (rate-limited).
 - `POST /api/auth/login` — Email/username + password login (rate-limited).
 - `POST /api/auth/refresh` — Rotate refresh token & issue new access token (with family reuse detection).
 - `POST /api/auth/logout` — Revoke current refresh token family.
 - `GET /api/auth/me` — Return current authenticated user profile.
 - `GET /api/auth/github/url` — Return GitHub OAuth authorization URL with signed `state`.
-- `GET /api/auth/github/start` — Initiate GitHub OAuth popup flow with origin validation and cookie state.
-- `GET /api/auth/github/callback` — Handle GitHub OAuth code exchange and render popup closer.
+- `GET /api/auth/github/callback` — Handle GitHub OAuth code exchange and render `postMessage` popup closer.
 
 ### 5.3 Users & Admin (`/api/users`)
 - `PATCH /api/users/me` — Update `displayName`, `username`, `avatarUrl`.
@@ -355,7 +345,6 @@ All list endpoints support cursor pagination (`?cursor=<opaque_base64>&limit=<1.
 
 ### 5.5 Full-Text Search (`/api/search`)
 - `GET /api/search/snippets` — Query parameters: `q` (search query parsed via `websearch_to_tsquery('english', q)`), `language`, `authorId`, `tag`, `createdFrom`, `createdTo`, `sort` (`relevance | newest | oldest | updated`), `cursor`, `limit`. Returns ranked snippets with `rank` (`ts_rank_cd`) and `headline` (`ts_headline` highlighted snippet).
-- `GET /api/search/facets` — Returns aggregated facet counts (languages, tags, and visibility breakdown) based on snippets accessible to the caller.
 
 ### 5.6 Comments & Review Threads (`/api/snippets/:snippetId/comments`)
 - `GET /api/snippets/:snippetId/comments` — List threaded comments for a snippet, computing `isOutdated: boolean` by comparing `comment.anchorLineText` against the current line at `comment.lineNumber`.
@@ -395,11 +384,28 @@ Full event schemas will be documented in `docs/REALTIME.md` in Phase 9. Core pro
 
 ---
 
+## 7. Subsystem Delivery by Phase
+
+| Phase | Subsystems & Deliverables | Verification Target |
+| :--- | :--- | :--- |
+| **Phase 0** | Environment capability report, `docs/ARCHITECTURE.md`, `docs/PROGRESS.md` | File verification (`ls`, `wc -l`) |
+| **Phase 1** | Monorepo skeleton (`/frontend`, `/backend`, root workspace), Drizzle schema + committed SQL migration, Cloud SQL provisioning/connection, Zod env validation, Pino logger with `requestId`, standard error handler, `/api/health`, idempotent seed script | Boot test, `/api/health` response, seed execution, restart persistence check |
+| **Phase 2** | Custom JWT + opaque refresh token rotation with family reuse detection, `AUTH_TRANSPORT=bearer\|cookie`, register/login/logout/me, profile & password update, admin role management, GitHub OAuth popup flow, central `authorize.ts` module | Vitest + Supertest suite covering auth lifecycle, token reuse revocation, and role matrix |
+| **Phase 3** | Snippet CRUD, visibility (`public`/`unlisted`/`private`), collaborators & per-snippet roles, tags, `snippet_versions` snapshots, version restore, structured two-version diff | Vitest + Supertest suite for snippet CRUD, version diff/restore, and collaborator permission rules |
+| **Phase 4** | PostgreSQL `tsvector` + `GIN` index full-text search (`websearch_to_tsquery`, `ts_rank_cd`, `ts_headline`), filters (`language`, `authorId`, date range, tags), sorting, cursor pagination across all list endpoints | Vitest + Supertest search ranking, highlight snippets, filter combinations, and cursor pagination tests |
+| **Phase 5** | Socket.io + Yjs in-memory room hub, handshake + expiry auth, per-socket rate limiting, presence/cursors, periodic + empty-room + manual DB persistence, server-side viewer write-block | Automated socket integration tests including viewer write-rejection proof & multi-client Yjs sync |
+| **Phase 6** | Line-anchored threaded comments, replies, resolve/unresolve, `anchorLineText` outdated detection, `MailService` (`ConsoleMailService` + `SmtpMailService`), in-app notifications, live socket broadcasts | Vitest + Supertest tests for threaded comments, outdated state calculation, resolve permissions, and notifications |
+| **Phase 7** | Internal typed EventBus, persisted `activities`, real-time socket push, global (`public` only), per-snippet, and per-user paginated activity feeds | Vitest + Supertest tests verifying event emission, privacy filtering, and pagination |
+| **Phase 8** | Complete React + Zustand + Tailwind + Monaco (`y-monaco`) frontend: Auth modals + GitHub popup, Snippet Explorer with search/filters/pagination, Live Collaborative Editor with presence & remote cursors, Line Comment Gutter & Thread Sidebar with outdated markers, Version History + Diff & Restore viewer, Activity Feed, Notifications drawer, Profile & Admin Role management | TypeScript build (`compile_applet` + `lint_applet`), frontend tests, and live server verification |
+| **Phase 9** | Swagger/OpenAPI at `/api/docs`, `docs/REALTIME.md`, `README.md` (with Mermaid diagram, setup, env table, seed credentials, security checklist, limitations), `Dockerfile`s, `docker-compose.yml` (plain Postgres), `.github/workflows/ci.yml`, final verification matrix | Full test suite run, `/api/docs` check, build verification, and complete evidence checklist |
+
+---
+
 ## 8. Hardening & Security Architecture
 
 ### 8.1 Rate Limiting Architecture
 - **Proxy Hop Trust**: Express `trust proxy` is configured strictly to `TRUST_PROXY_HOPS` (default: 0). Untrusted clients cannot bypass IP rate limits by injecting arbitrary `X-Forwarded-For` headers.
-- **Compound Keys**: Authentication rate limiting (`/api/auth/login`, `/api/auth/register`) uses a compound key: `req.ip + ':' + sha256(identifier)`. This prevents account enumeration or localized lockout from blocking legitimate users sharing an IP or proxy.
+- **Compound Keys**: Authentication rate limiting (`/api/auth/login`, `/api/auth/register`, `/api/auth/forgot-password`) uses a compound key: `req.ip + ':' + sha256(identifier)`. This prevents account enumeration or localized lockout from blocking legitimate users sharing an IP or proxy.
 
 ### 8.2 OAuth State Lifecycle & Double-Submit Protection
 - State tokens generated during `/api/auth/github` are signed with HMAC (`OAUTH_STATE_SECRET`) and persisted in the `oauth_states` PostgreSQL table.

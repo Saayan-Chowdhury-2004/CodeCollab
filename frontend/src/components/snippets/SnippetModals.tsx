@@ -8,7 +8,7 @@ import {
   SnippetVisibility,
   UserDTO,
 } from '../../types/domain.ts';
-import { CustomSelect } from '../ui/CustomSelect.tsx';
+import { CustomSelect, CustomSelectOption } from '../ui/CustomSelect.tsx';
 
 interface CreateOrEditSnippetModalProps {
   isOpen: boolean;
@@ -35,9 +35,9 @@ const VISIBILITY_OPTIONS = [
   { value: 'private', label: 'Private (Owner & Collaborators Only)' },
 ];
 
-const ROLE_OPTIONS = [
-  { value: 'editor', label: 'Editor (Read + Write)' },
-  { value: 'viewer', label: 'Viewer (Read + Comment)' },
+const ROLE_OPTIONS: CustomSelectOption<CollaboratorRole>[] = [
+  { value: 'editor', label: 'Editor', badge: 'Read & Write' },
+  { value: 'viewer', label: 'Viewer', badge: 'Read Only' },
 ];
 
 export const CreateOrEditSnippetModal: React.FC<
@@ -357,39 +357,61 @@ export const CollaboratorsModal: React.FC<CollaboratorsModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="w-full max-w-lg rounded-[28px] modal-surface border border-[var(--border)] shadow-2xl overflow-hidden">
-        <div className="px-6 py-4 border-b border-[var(--border)] flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Users className="w-4 h-4 text-[var(--ink)]" />
-            <h2 className="text-sm font-semibold text-[var(--ink)]">
-              Snippet Collaborators &amp; Access
-            </h2>
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+      <div className="w-full max-w-xl rounded-[28px] modal-surface border border-[var(--border)] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-[var(--border)] flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-[var(--surface-raised)] border border-[var(--border)] flex items-center justify-center text-[var(--ink)] shrink-0">
+              <Users className="w-4 h-4" />
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold text-[var(--ink)] leading-tight">
+                Snippet Collaborators &amp; Access
+              </h2>
+              <p className="text-[11px] text-[var(--ink-muted)]">
+                Invite teammates to view, edit, or collaborate in real time
+              </p>
+            </div>
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close dialog"
-            className="p-1 rounded-xl text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-raised)] transition-colors"
+            className="p-1.5 rounded-xl text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-raised)] transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="p-6 space-y-4 text-xs">
+        {/* Content Body */}
+        <div className="p-6 space-y-5 text-xs overflow-y-auto">
           {error && (
-            <div className="p-3 rounded-2xl bg-[var(--surface-raised)] border border-[var(--border)] text-[var(--ink)]">
-              {error}
+            <div className="p-3 rounded-2xl bg-[var(--surface-raised)] border border-[var(--border)] text-[var(--ink)] flex items-center justify-between gap-2">
+              <span>{error}</span>
+              <button
+                type="button"
+                onClick={() => setError(null)}
+                className="text-[var(--ink-muted)] hover:text-[var(--ink)] p-0.5"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
             </div>
           )}
 
           {canManage ? (
             <div className="space-y-2">
-              <label className="block font-medium text-[var(--ink-muted)]">
-                Add or Update Collaborator
-              </label>
-              <form onSubmit={(e) => handleAdd(e)} className="flex items-center gap-2">
-                <div ref={dropdownRef} className="flex-1 relative">
+              <div className="flex items-center justify-between">
+                <label className="block font-medium text-xs text-[var(--ink)]">
+                  Add or update collaborator
+                </label>
+                <span className="text-[11px] text-[var(--ink-muted)]">
+                  Search by name, @username, or email
+                </span>
+              </div>
+
+              <form onSubmit={(e) => handleAdd(e)} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <div ref={dropdownRef} className="flex-1 min-w-0 relative">
                   <div className="relative">
                     <input
                       type="text"
@@ -398,12 +420,25 @@ export const CollaboratorsModal: React.FC<CollaboratorsModalProps> = ({
                         if (suggestions.length > 0) setShowDropdown(true);
                       }}
                       onChange={(e) => setUsernameOrEmail(e.target.value)}
-                      placeholder="Type name, @username or email..."
-                      className="w-full bg-[var(--surface-raised)] border border-[var(--border)] rounded-[14px] px-3.5 py-2 pl-9 text-xs text-[var(--ink)] outline-none focus:border-[var(--ink-muted)] placeholder:[var(--ink-muted)] shadow-inset"
+                      placeholder="Type name, @username, or email..."
+                      className="w-full bg-[var(--surface-raised)] border border-[var(--border)] rounded-[14px] px-3.5 py-2 pl-9 pr-8 text-xs text-[var(--ink)] outline-none focus:border-[var(--focus-ring)] placeholder:[var(--ink-muted)] shadow-inset transition-colors"
                     />
                     <Search className="w-3.5 h-3.5 text-[var(--ink-muted)] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     {isSearching && (
                       <Loader2 className="w-3.5 h-3.5 text-[var(--ink)] absolute right-3 top-1/2 -translate-y-1/2 animate-spin pointer-events-none" />
+                    )}
+                    {!isSearching && usernameOrEmail && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUsernameOrEmail('');
+                          setShowDropdown(false);
+                        }}
+                        aria-label="Clear search input"
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded text-[var(--ink-muted)] hover:text-[var(--ink)] transition-colors cursor-pointer"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
                     )}
                   </div>
 
@@ -421,14 +456,14 @@ export const CollaboratorsModal: React.FC<CollaboratorsModalProps> = ({
                             <div
                               key={u.id}
                               onClick={() => !isOwner && handleSelectUser(u)}
-                              className={`p-2.5 flex items-center justify-between gap-2 transition-colors ${
+                              className={`p-2.5 flex items-center justify-between gap-2.5 transition-colors ${
                                 isOwner
                                   ? 'opacity-60 cursor-not-allowed bg-[var(--surface-raised)]/40'
                                   : 'hover:bg-[var(--surface-raised)] cursor-pointer'
                               }`}
                             >
                               <div className="flex items-center gap-2.5 min-w-0">
-                                <div className="w-6 h-6 rounded-full bg-[var(--surface-raised)] border border-[var(--border)] flex items-center justify-center text-[10px] font-semibold text-[var(--ink)] shrink-0">
+                                <div className="w-7 h-7 rounded-full bg-[var(--surface-raised)] border border-[var(--border)] flex items-center justify-center text-xs font-semibold text-[var(--ink)] shrink-0">
                                   {u.displayName.charAt(0).toUpperCase()}
                                 </div>
                                 <div className="min-w-0">
@@ -458,7 +493,7 @@ export const CollaboratorsModal: React.FC<CollaboratorsModalProps> = ({
                                       e.stopPropagation();
                                       handleAdd(undefined, u.username);
                                     }}
-                                    className="px-2.5 py-1 rounded-[10px] bg-[var(--ink)] text-[var(--ink-contrast)] text-[11px] font-medium shadow-raised cursor-pointer"
+                                    className="px-2.5 py-1 rounded-[10px] bg-[var(--ink)] text-[var(--ink-contrast)] text-[11px] font-medium shadow-raised hover:opacity-90 transition-opacity cursor-pointer"
                                   >
                                     Add
                                   </button>
@@ -468,7 +503,7 @@ export const CollaboratorsModal: React.FC<CollaboratorsModalProps> = ({
                           );
                         })
                       ) : (
-                        <div className="p-3 text-center text-[var(--ink-muted)] text-xs">
+                        <div className="p-3.5 text-center text-[var(--ink-muted)] text-xs">
                           {isSearching ? (
                             'Searching users...'
                           ) : (
@@ -480,20 +515,26 @@ export const CollaboratorsModal: React.FC<CollaboratorsModalProps> = ({
                   )}
                 </div>
 
-                <CustomSelect
-                  value={role}
-                  onChange={(val) => setRole(val as CollaboratorRole)}
-                  options={ROLE_OPTIONS}
-                  className="w-48 shrink-0"
-                  aria-label="Select collaborator role"
-                />
+                <div className="w-full sm:w-36 shrink-0">
+                  <CustomSelect
+                    value={role}
+                    onChange={(val) => setRole(val as CollaboratorRole)}
+                    options={ROLE_OPTIONS}
+                    className="w-full"
+                    aria-label="Select collaborator role"
+                  />
+                </div>
 
                 <button
                   type="submit"
                   disabled={isSubmitting || !usernameOrEmail.trim()}
-                  className="px-4 py-2 rounded-[14px] bg-[var(--ink)] text-[var(--ink-contrast)] disabled:opacity-50 font-semibold flex items-center gap-1.5 shadow-raised hover:opacity-90 transition-opacity shrink-0 cursor-pointer"
+                  className="px-4 py-2 rounded-[14px] bg-[var(--ink)] text-[var(--ink-contrast)] disabled:opacity-40 disabled:cursor-not-allowed font-medium text-xs flex items-center justify-center gap-1.5 shadow-raised hover:opacity-90 transition-all shrink-0 cursor-pointer"
                 >
-                  <UserPlus className="w-3.5 h-3.5" />
+                  {isSubmitting ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <UserPlus className="w-3.5 h-3.5" />
+                  )}
                   <span>{isSubmitting ? 'Adding...' : 'Add'}</span>
                 </button>
               </form>
@@ -506,59 +547,115 @@ export const CollaboratorsModal: React.FC<CollaboratorsModalProps> = ({
           )}
 
           {/* Collaborators List */}
-          <div className="border border-[var(--border)] rounded-2xl divide-y divide-[var(--border)] bg-[var(--surface-raised)]/20 overflow-hidden shadow-inset">
-            <div className="p-3 flex items-center justify-between">
-              <div>
-                <div className="font-medium text-[var(--ink)]">
-                  {activeSnippet.owner.displayName} (@{activeSnippet.owner.username})
-                </div>
-                <div className="text-[11px] text-[var(--ink-muted)]">Snippet Owner</div>
-              </div>
-              <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-[var(--surface-raised)] border border-[var(--border)] text-[var(--ink)] font-medium">
-                OWNER
+          <div className="space-y-2 pt-1">
+            <div className="flex items-center justify-between">
+              <span className="font-medium text-xs text-[var(--ink)]">
+                Current Access
+              </span>
+              <span className="text-[11px] text-[var(--ink-muted)] font-mono">
+                {1 + activeSnippet.collaborators.length} {activeSnippet.collaborators.length === 0 ? 'member' : 'members'}
               </span>
             </div>
 
-            {activeSnippet.collaborators.map((collab) => (
-              <div
-                key={collab.id}
-                className="p-3 flex items-center justify-between gap-2"
-              >
-                <div>
-                  <div className="font-medium text-[var(--ink)]">
-                    {collab.displayName} (@{collab.username})
+            <div className="border border-[var(--border)] rounded-2xl divide-y divide-[var(--border)] bg-[var(--surface-raised)]/20 overflow-hidden shadow-inset">
+              {/* Owner Row */}
+              <div className="p-3.5 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-8 h-8 rounded-full bg-[var(--surface-raised)] border border-[var(--border)] flex items-center justify-center text-xs font-semibold text-[var(--ink)] shrink-0">
+                    {activeSnippet.owner.displayName.charAt(0).toUpperCase()}
                   </div>
-                  <div className="text-[11px] font-mono text-[var(--ink-muted)]">
-                    {collab.email}
+                  <div className="min-w-0">
+                    <div className="font-medium text-[var(--ink)] truncate flex items-center gap-1.5">
+                      <span className="truncate">{activeSnippet.owner.displayName}</span>
+                      <span className="text-[11px] font-mono text-[var(--ink-muted)] shrink-0">
+                        @{activeSnippet.owner.username}
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-[var(--ink-muted)] truncate">
+                      Snippet Creator &amp; Owner
+                    </div>
                   </div>
                 </div>
-
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded-full border ${
-                      collab.role === 'editor'
-                        ? 'bg-[var(--surface-raised)] border-[var(--border)] text-[var(--ink)] font-semibold'
-                        : 'bg-[var(--surface-raised)] border-[var(--border)] text-[var(--ink-muted)]'
-                    }`}
-                  >
-                    {collab.role}
-                  </span>
-
-                  {canManage && (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        removeCollaborator(activeSnippet.id, collab.userId)
-                      }
-                      className="p-1 rounded-lg text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-raised)] transition-colors"
-                      title="Remove Collaborator"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
+                <span className="text-[10px] font-mono uppercase px-2.5 py-0.5 rounded-full bg-[var(--surface-raised)] border border-[var(--border)] text-[var(--ink)] font-semibold tracking-wider shrink-0">
+                  OWNER
+                </span>
               </div>
-            ))}
+
+              {/* Collaborator Rows */}
+              {activeSnippet.collaborators.map((collab) => (
+                <div
+                  key={collab.id}
+                  className="p-3.5 flex items-center justify-between gap-3 hover:bg-[var(--surface-raised)]/30 transition-colors"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 rounded-full bg-[var(--surface-raised)] border border-[var(--border)] flex items-center justify-center text-xs font-semibold text-[var(--ink)] shrink-0">
+                      {collab.displayName.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="font-medium text-[var(--ink)] truncate flex items-center gap-1.5">
+                        <span className="truncate">{collab.displayName}</span>
+                        <span className="text-[11px] font-mono text-[var(--ink-muted)] shrink-0">
+                          @{collab.username}
+                        </span>
+                      </div>
+                      <div className="text-[11px] font-mono text-[var(--ink-muted)] truncate">
+                        {collab.email || 'No email provided'}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    {canManage ? (
+                      <>
+                        <CustomSelect
+                          value={collab.role}
+                          onChange={async (newRole) => {
+                            try {
+                              await addCollaborator(activeSnippet.id, {
+                                username: collab.username,
+                                role: newRole as CollaboratorRole,
+                              });
+                            } catch (err) {
+                              setError((err as Error).message || 'Failed to update role');
+                            }
+                          }}
+                          options={ROLE_OPTIONS}
+                          className="w-28 text-left"
+                          aria-label={`Change role for ${collab.username}`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            removeCollaborator(activeSnippet.id, collab.userId)
+                          }
+                          className="p-1.5 rounded-xl text-[var(--ink-muted)] hover:text-red-500 hover:bg-red-500/10 transition-colors cursor-pointer"
+                          title={`Remove ${collab.displayName}`}
+                          aria-label={`Remove ${collab.displayName}`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </>
+                    ) : (
+                      <span
+                        className={`text-[10px] font-mono uppercase px-2.5 py-0.5 rounded-full border ${
+                          collab.role === 'editor'
+                            ? 'bg-[var(--surface-raised)] border-[var(--border)] text-[var(--ink)] font-semibold'
+                            : 'bg-[var(--surface-raised)] border-[var(--border)] text-[var(--ink-muted)]'
+                        }`}
+                      >
+                        {collab.role}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+
+              {activeSnippet.collaborators.length === 0 && (
+                <div className="p-4 text-center text-[var(--ink-muted)] text-[11px]">
+                  No external collaborators yet. Share this snippet with teammates to collaborate in real-time.
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

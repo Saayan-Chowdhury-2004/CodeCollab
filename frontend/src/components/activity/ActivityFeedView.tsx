@@ -1,6 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Activity,
+  Check,
+  ChevronDown,
   Code2,
   ExternalLink,
   Globe,
@@ -11,7 +13,6 @@ import { useAuthStore } from '../../store/authStore.ts';
 import { useRealtimeStore } from '../../store/realtimeStore.ts';
 import { useSnippetStore } from '../../store/snippetStore.ts';
 import { ActivityDTO, ActivityEventType } from '../../types/domain.ts';
-import { CustomSelect } from '../ui/CustomSelect.tsx';
 
 interface ActivityFeedViewProps {
   onNavigateToSnippet: (snippetId: string) => void;
@@ -50,6 +51,19 @@ export const ActivityFeedView: React.FC<ActivityFeedViewProps> = ({
   const [scopeTab, setScopeTab] = useState<'global' | 'snippet' | 'user'>(
     'global'
   );
+
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
 
   const loadScope = (
     tab: 'global' | 'snippet' | 'user',
@@ -97,14 +111,50 @@ export const ActivityFeedView: React.FC<ActivityFeedViewProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
-            <CustomSelect
-              value={activityTypeFilter}
-              onChange={(val) => setActivityTypeFilter(val as '' | ActivityEventType)}
-              options={EVENT_TYPES}
-              aria-label="Filter by activity event type"
-              className="w-48"
-              triggerClassName="py-1.5"
-            />
+            <div className="relative" ref={dropdownRef}>
+              <button
+                type="button"
+                onClick={() => setIsDropdownOpen((v) => !v)}
+                aria-haspopup="listbox"
+                aria-expanded={isDropdownOpen}
+                aria-label="Filter by activity event type"
+                className="bg-[var(--surface-raised)] border border-[var(--border)] rounded-[14px] px-3.5 py-1.5 text-xs text-[var(--ink)] flex items-center gap-2 hover:bg-[var(--surface-overlay)] transition-colors focus-visible:outline-none focus-ring-visible cursor-pointer shadow-sm font-medium"
+              >
+                <span>{EVENT_TYPES.find((et) => et.value === activityTypeFilter)?.label || 'All Event Types'}</span>
+                <ChevronDown className={`w-3.5 h-3.5 text-[var(--ink-muted)] transition-transform duration-150 ${isDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {isDropdownOpen && (
+                <div
+                  role="listbox"
+                  className="absolute right-0 mt-1.5 w-48 py-1 rounded-[14px] bg-[var(--surface-overlay)] border border-[var(--border)] shadow-raised z-50 overflow-hidden"
+                >
+                  {EVENT_TYPES.map((et) => {
+                    const isSelected = activityTypeFilter === et.value;
+                    return (
+                      <button
+                        key={et.value}
+                        type="button"
+                        role="option"
+                        aria-selected={isSelected}
+                        onClick={() => {
+                          setActivityTypeFilter(et.value as '' | ActivityEventType);
+                          setIsDropdownOpen(false);
+                        }}
+                        className={`w-full text-left px-3 py-1.5 text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                          isSelected
+                            ? 'bg-[var(--surface-raised)] text-[var(--ink)] font-semibold'
+                            : 'text-[var(--ink)] hover:bg-[var(--surface-raised)]/60'
+                        }`}
+                      >
+                        <span>{et.label}</span>
+                        {isSelected && <Check className="w-3.5 h-3.5 text-[var(--ink)]" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
             <button
               type="button"

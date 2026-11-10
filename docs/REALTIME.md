@@ -61,9 +61,6 @@ Every incoming event is validated with a strict **Zod** schema and authorized th
 | `presence:state` | Server $\to$ Client | `{ snippetId, members: PresenceMemberDTO[] }` | Broadcast to `snippet:<snippetId>` on join/leave/disconnect |
 | `snippet:save-version` | Client $\to$ Server | `{ snippetId: string.uuid(), summary?: string.max(200) }` | **`evaluateAuthorization(actor, 'snippet:version:create', { snippet })`** |
 | `version:created` | Server $\to$ Client | `{ snippetId, version: SnippetVersionDTO }` | Broadcast to `snippet:<snippetId>` |
-| `snippet:updated` | Server $\to$ Client | `{ snippetId, versionNumber, title, tags, visibility, summary, updatedAt }` | Broadcast to `snippet:<snippetId>` on metadata update (omits code content) |
-| `snippet:invalidate` | Server $\to$ Client | `{ snippetId }` | Broadcast to prompt client store refetch without leaking content |
-| `snippet:access-revoked` | Server $\to$ Client | `{ snippetId, reason }` | Sent to sockets kicked from room when snippet is made private |
 | `comment:created` | Server $\to$ Client | `{ snippetId, comment: CommentDTO }` | Broadcast to `snippet:<snippetId>` after `comment:create` |
 | `comment:updated` | Server $\to$ Client | `{ snippetId, comment: CommentDTO }` | Broadcast to `snippet:<snippetId>` after `comment:edit` |
 | `comment:resolved` | Server $\to$ Client | `{ snippetId, comment: CommentDTO }` | Broadcast to `snippet:<snippetId>` after `comment:resolve` |
@@ -163,7 +160,7 @@ When a client reconnects after a transient network drop:
 
 1. **Periodic Background Flush (Every 10 Seconds)**:
    - Any room with `dirty === true` flushes its `Y.encodeStateAsUpdate(room.yDoc)` (`yjs_state`), plain text (`current_content`), and weighted PostgreSQL `search_vector` (`tsvector`) to the `snippets` table.
-2. **Debounced Autosave Version Snapshot (30 Seconds after last edit)**:
+2. **Debounced Autosave Version Snapshot (15 Seconds after last edit)**:
    - Creates a new `snippet_versions` row (`source = 'autosave'`) with `author_id = lastEditorId` and increments `snippets.latest_version_number`.
 3. **Explicit Manual Checkpoint (`snippet:save-version`)**:
    - Immediately flushes the `Y.Doc`, inserts a `snippet_versions` row (`source = 'manual'`), emits `snippet.edited` on `domainEventBus`, and broadcasts `version:created` to all room members.
@@ -179,12 +176,13 @@ When a snippet's visibility is changed to `private` or a collaborator is removed
 - Loads current snippet visibility, owner, and active collaborator list.
 - Re-evaluates permissions for every connected socket in `snippet:<snippetId>`.
 - Any socket that no longer has `snippet:read` authorization is removed from the room, has its Socket.io membership kicked, and receives a `snippet:access-revoked` event with `{ snippetId, reason: 'Snippet visibility or collaborator status changed' }`.
+- If a user's role is downgraded (e.g., from `editor` to `viewer`), their cached role in the room is updated, and `snippet:role-changed` is emitted to notify the client.
 - `snippet:invalidate` is emitted to prompt client stores to refetch metadata without leaking snippet code in the broadcast event.
 
 ### 6.2 Token Expiry Sweep
 A server background sweep runs every 60 seconds inspecting active socket connections:
-- Identifies authenticated sockets whose `tokenExp` has passed.
-- Emits `auth:expired` to prompt the client to refresh its session via `auth:refresh`.
+- Identifies authenticated sockets whose `tokenExp` has passed and whose client has failed to provide a valid token via `auth:refresh`.
+- Forcibly disconnects stale sockets to prevent zombie connections from receiving real-time broadcasts.
 
 ### 6.3 Strict Payload Bounds
 To protect the server and client workers against memory exhaustion and denial-of-service:

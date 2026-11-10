@@ -1,6 +1,6 @@
 # CodeCollab — Collaborative Code Snippet Sharing & Review Platform
 
-CodeCollab is a collaborative code snippet sharing and review web application featuring versioned snippets, real-time CRDT co-editing (Yjs + Monaco + Socket.io), line-anchored review comments with outdated-line detection, and PostgreSQL full-text search.
+A production-grade software engineering platform combining **Gists-style versioned code snippets**, **Google Docs-style live CRDT co-editing (Yjs + Monaco + Socket.io)**, **GitHub-style per-line threaded review comments with outdated-line detection**, and **PostgreSQL `tsvector` + `GIN` full-text search**.
 
 ---
 
@@ -13,8 +13,6 @@ CodeCollab is a collaborative code snippet sharing and review web application fe
 | **Backend (`/backend`)** | Node.js, Express, TypeScript (`tsx`), Socket.io, Zod, Pino, Helmet, `express-rate-limit` | Self-contained server owning its own `package.json`, `tsconfig.json`, `drizzle.config.ts`, `src/db/schema.ts`, `src/db/index.ts`, and `Dockerfile`. Zod validates every REST route and Socket.io payload; Pino logs structured JSON correlated by `X-Request-Id`. |
 | **Database & ORM** | PostgreSQL 16, Drizzle ORM (`drizzle-orm`, `pg`), `drizzle-kit` | Single config module (`backend/src/config/env.ts`) resolves `DATABASE_URL` (with optional `DB_SSL`) first and falls back to `SQL_*` variables only if `DATABASE_URL` is absent. Uses `drizzle-kit migrate` to apply committed SQL migrations (`backend/drizzle/0000_init.sql`). |
 | **Testing** | Vitest + Supertest + `socket.io-client` | Feature-named integration tests covering environment/DB config, RBAC & refresh rotation, snippet transactions & email privacy, weighted `tsvector` FTS, live Yjs rooms & REST-to-Yjs synchronization, threaded line comments, activity feeds, and OpenAPI docs. |
-
-The frontend is built as a single-page application using React and Vite, requiring no server-side rendering. GitHub is the only supported OAuth provider; Google login is not implemented.
 
 ---
 
@@ -81,13 +79,6 @@ Compose stops with a clear message while either secret is empty. The app is then
 - `backend/Dockerfile`: Multi-stage build producing a non-root production container running `sh -c "npx drizzle-kit migrate && npx tsx src/index.ts"` on port `4000`.
 - `frontend/Dockerfile`: Multi-stage build compiling static Vite assets and serving them through an `nginx:1.27-alpine` container (master process as root, worker processes unprivileged) on port `80` with SPA routing and security headers (CSP and Permissions-Policy).
 
-### Demo Data in Docker
-The backend container runs in production mode, where database seeding refuses to execute unless `ALLOW_DEMO_SEED=true` is explicitly provided. To seed initial demo accounts inside the running Docker container, run:
-```bash
-docker compose exec -e ALLOW_DEMO_SEED=true -e SEED_ADMIN_PASSWORD=<choose-a-password> backend npx tsx src/db/seed.ts
-```
-> **Notice**: This command creates demo accounts with known passwords and is strictly intended for local evaluation, never for a real deployment.
-
 ### Option B: Run Locally Without Docker
 1. **Install workspace dependencies**:
    ```bash
@@ -136,27 +127,19 @@ npm test
 
 Run individual feature test suites:
 ```bash
-# Backend test suites (run via workspace to preserve --no-file-parallelism)
-npm --workspace=@codecollab/backend run test -- src/__tests__/activity-feeds.test.ts
-npm --workspace=@codecollab/backend run test -- src/__tests__/auth-rbac.test.ts
-npm --workspace=@codecollab/backend run test -- src/__tests__/comments-notifications.test.ts
-npm --workspace=@codecollab/backend run test -- src/__tests__/env-normalization.test.ts
-npm --workspace=@codecollab/backend run test -- src/__tests__/foundation-health.test.ts
-npm --workspace=@codecollab/backend run test -- src/__tests__/github-auth.test.ts
-npm --workspace=@codecollab/backend run test -- src/__tests__/oauth-popup-handoff.test.ts
-npm --workspace=@codecollab/backend run test -- src/__tests__/openapi-docs.test.ts
-npm --workspace=@codecollab/backend run test -- src/__tests__/realtime-yjs.test.ts
-npm --workspace=@codecollab/backend run test -- src/__tests__/search-fts.test.ts
-npm --workspace=@codecollab/backend run test -- src/__tests__/security-regressions.test.ts
-npm --workspace=@codecollab/backend run test -- src/__tests__/snippets-versions.test.ts
-
-# Frontend test suites
-npm --workspace=@codecollab/frontend run test -- src/__tests__/api-errors.test.ts
-npm --workspace=@codecollab/frontend run test -- src/__tests__/frontend-utils.test.ts
-npm --workspace=@codecollab/frontend run test -- src/__tests__/landingRouting.test.ts
+npx vitest run backend/src/__tests__/foundation-health.test.ts
+npx vitest run backend/src/__tests__/auth-rbac.test.ts
+npx vitest run backend/src/__tests__/env-normalization.test.ts
+npx vitest run backend/src/__tests__/github-auth.test.ts
+npx vitest run backend/src/__tests__/snippets-versions.test.ts
+npx vitest run backend/src/__tests__/search-fts.test.ts
+npx vitest run backend/src/__tests__/realtime-yjs.test.ts
+npx vitest run backend/src/__tests__/comments-notifications.test.ts
+npx vitest run backend/src/__tests__/activity-feeds.test.ts
+npx vitest run backend/src/__tests__/openapi-docs.test.ts
+npx vitest run backend/src/__tests__/security-regressions.test.ts
+npx vitest run frontend/src/__tests__/frontend-utils.test.ts
 ```
-
-> **Note**: Workspace commands ensure `--no-file-parallelism` is preserved for backend tests (root-level `npx vitest` skips this flag).
 
 Run TypeScript typechecking, environment schema parity, secret scanning, and production frontend build verification:
 ```bash
@@ -201,11 +184,6 @@ npm run build
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` / `SMTP_FROM` | No | `""` / `587` | SMTP server configuration when `MAIL_PROVIDER=smtp`. |
 | `VITE_API_URL` | No | `""` (same origin) | Base URL for frontend REST and Socket.io requests. In local dev, Vite proxies `/api` and `/socket.io`. |
 | `VITE_AUTH_TRANSPORT` | No | `bearer` | Client-side transport mode (`bearer` \| `cookie`). |
-| `VITE_REPO_URL` | No | `""` | Optional GitHub repository link on the landing page; repository links are hidden if empty. |
-| `SQL_HOST` / `SQL_PORT` | No | `localhost` / `5432` | PostgreSQL host and port fallback variables (used only when `DATABASE_URL` is empty). |
-| `SQL_USER` / `SQL_PASSWORD` / `SQL_DB_NAME` | No | `codecollab` / `codecollab_dev_password` / `codecollab` | PostgreSQL credentials fallback variables (used only when `DATABASE_URL` is empty). |
-| `ALLOW_DEMO_SEED` | No | `false` | When set to `true`, permits running `backend/src/db/seed.ts` in production mode. |
-| `SEED_ADMIN_PASSWORD` | No | `AdminPass123!` (dev/test) / Random hex (prod) | Initial password override for the seeded administrator account in `backend/src/db/seed.ts`. |
 
 ---
 

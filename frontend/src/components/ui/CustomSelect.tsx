@@ -71,7 +71,10 @@ export function CustomSelect<T extends string = string>({
   }, [isOpen]);
 
   return (
-    <div ref={containerRef} className={`relative w-full ${className}`}>
+    <div
+      ref={containerRef}
+      className={`relative ${/\bw-/.test(className) ? className : `w-full ${className}`}`}
+    >
       <button
         type="button"
         id={id}
@@ -86,9 +89,8 @@ export function CustomSelect<T extends string = string>({
           {selectedOption ? selectedOption.label : placeholder}
         </span>
         <ChevronDown
-          className={`w-3.5 h-3.5 text-[var(--ink-muted)] shrink-0 transition-transform duration-200 ${
-            isOpen ? 'rotate-180' : ''
-          }`}
+          className={`w-3.5 h-3.5 text-[var(--ink-muted)] shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''
+            }`}
         />
       </button>
 
@@ -110,11 +112,10 @@ export function CustomSelect<T extends string = string>({
                   onChange(opt.value);
                   setIsOpen(false);
                 }}
-                className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between gap-2 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
-                  isSelected
+                className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between gap-2 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${isSelected
                     ? 'bg-[var(--surface-raised)] text-[var(--ink)] font-semibold'
                     : 'text-[var(--ink)] hover:bg-[var(--surface-raised)]/60 font-normal'
-                }`}
+                  }`}
               >
                 <div className="flex items-center gap-2 truncate">
                   <span className="truncate capitalize">{opt.label}</span>
