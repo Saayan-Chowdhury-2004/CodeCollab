@@ -94,7 +94,7 @@ export const AppShell: React.FC<AppShellProps> = ({
             <div
               className={`${
                 isRightPanelOpen ? 'flex' : 'hidden'
-              } fixed lg:static inset-x-2 bottom-2 h-[65vh] lg:h-full z-40 lg:z-auto rounded-[28px] frosted-surface flex-col shrink-0 overflow-hidden shadow-2xl lg:shadow-none`}
+              } fixed lg:static inset-x-2 bottom-2 h-[65vh] lg:h-full z-40 lg:z-auto flex-col shrink-0 overflow-hidden shadow-2xl lg:shadow-none`}
             >
               {rightPanelContent}
             </div>
