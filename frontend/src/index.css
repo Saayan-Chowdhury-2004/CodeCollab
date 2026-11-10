@@ -1,0 +1,237 @@
+@import "tailwindcss";
+@import "@fontsource-variable/inter";
+
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
+:root {
+  --canvas-from: #c4c4c6;
+  --canvas-to: #b5b5b8;
+  --surface: #d3d3d5;
+  --surface-raised: #e2e4e3;
+  --surface-overlay: #ededef;
+  --ink: #1f1f22;
+  --ink-muted: #55565b;
+  --ink-contrast: #ffffff;
+  --border-dashed: #8d8e93;
+  --border: rgba(0, 0, 0, 0.12);
+  --border-subtle: rgba(0, 0, 0, 0.07);
+  --accent-positive: #1f1f22;
+  --accent-negative: #55565b;
+  --rail-bg: #2a2b2f;
+  --rail-border: rgba(0, 0, 0, 0.12);
+  --rail-icon: #e8e8e8;
+  --rail-active-tile: #3d3e44;
+  --focus-ring: #1f1f22;
+  --editor-bg: #ffffff;
+  --shadow-raised: inset 0 1px 0 rgba(255, 255, 255, 0.55), 0 8px 24px rgba(0, 0, 0, 0.12);
+  --shadow-inset: inset 0 2px 6px rgba(0, 0, 0, 0.14), inset 0 -1px 0 rgba(255, 255, 255, 0.4);
+
+  --radius-rail: 28px;
+  --radius-panel: 28px;
+  --radius-card: 20px;
+  --radius-row: 14px;
+  --radius-input: 14px;
+  --radius-pill: 14px;
+  --radius-badge: 9999px;
+
+  /* Compatibility bindings for existing layout before restructuring */
+  --surface-bg: var(--canvas-from);
+  --surface-panel: var(--surface);
+  --accent: var(--ink);
+}
+
+[data-theme="dark"] {
+  --canvas-from: #101012;
+  --canvas-to: #16171a;
+  --surface: rgba(255, 255, 255, 0.05);
+  --surface-raised: rgba(255, 255, 255, 0.09);
+  --surface-overlay: #1c1d20;
+  --ink: #ededee;
+  --ink-muted: #a2a3a8;
+  --ink-contrast: #121316;
+  --border-dashed: rgba(255, 255, 255, 0.22);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-subtle: rgba(255, 255, 255, 0.05);
+  --accent-positive: #ededee;
+  --accent-negative: #a2a3a8;
+  --rail-bg: #050506;
+  --rail-border: rgba(255, 255, 255, 0.08);
+  --rail-icon: #ededee;
+  --rail-active-tile: rgba(255, 255, 255, 0.12);
+  --focus-ring: #ededee;
+  --editor-bg: #121316;
+  --shadow-raised: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 8px 24px rgba(0, 0, 0, 0.35);
+  --shadow-inset: inset 0 2px 6px rgba(0, 0, 0, 0.3), inset 0 -1px 0 rgba(255, 255, 255, 0.08);
+
+  --surface-bg: var(--canvas-from);
+  --surface-panel: var(--surface);
+  --accent: var(--ink);
+}
+
+@theme {
+  --font-sans: 'Inter Variable', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+
+  --color-canvas-from: var(--canvas-from);
+  --color-canvas-to: var(--canvas-to);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-overlay: var(--surface-overlay);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-border-dashed: var(--border-dashed);
+  --color-border: var(--border);
+  --color-border-subtle: var(--border-subtle);
+  --color-accent-positive: var(--accent-positive);
+  --color-rail-bg: var(--rail-bg);
+  --color-rail-border: var(--rail-border);
+  --color-rail-icon: var(--rail-icon);
+  --color-rail-active-tile: var(--rail-active-tile);
+  --color-editor-bg: var(--editor-bg);
+
+  --radius-rail: 28px;
+  --radius-panel: 28px;
+  --radius-card: 20px;
+  --radius-row: 14px;
+  --radius-input: 14px;
+  --radius-pill: 14px;
+  --radius-badge: 9999px;
+}
+
+body {
+  background: linear-gradient(135deg, var(--canvas-from), var(--canvas-to));
+  color: var(--ink);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+  margin: 0;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Frosted surface with fallback */
+.frosted-surface {
+  background-color: color-mix(in oklab, var(--surface) 70%, transparent);
+  backdrop-filter: blur(18px) saturate(1.1);
+  -webkit-backdrop-filter: blur(18px) saturate(1.1);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-raised);
+}
+
+/* Opaque / high-contrast floating components (popovers, dropdowns, menus) */
+.popover-surface {
+  background-color: var(--surface-overlay) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.28) !important;
+  opacity: 1 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Modal windows popping over page */
+.modal-surface {
+  background-color: var(--surface-overlay) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: 0 28px 60px rgba(0, 0, 0, 0.4) !important;
+  opacity: 1 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.shadow-raised {
+  box-shadow: var(--shadow-raised);
+}
+
+.shadow-inset {
+  box-shadow: var(--shadow-inset);
+}
+
+.border-dashed-custom {
+  border: 1px solid var(--border);
+}
+
+select option {
+  background-color: var(--surface-overlay);
+  color: var(--ink);
+}
+
+.focus-ring-visible:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* Custom scrollbars: hidden by default, pops up after hovering for 1 second with a 400ms transition */
+* {
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 400ms ease;
+}
+
+*:hover {
+  scrollbar-color: var(--border) transparent;
+  transition: scrollbar-color 400ms ease 1000ms;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 3px;
+  transition: background-color 400ms ease;
+}
+*:hover::-webkit-scrollbar-thumb {
+  background-color: var(--border);
+  transition: background-color 400ms ease 1000ms;
+}
+*:hover::-webkit-scrollbar-thumb:hover {
+  background-color: var(--ink-muted);
+  transition: background-color 200ms ease 0ms;
+}
+
+/* Monaco editor scrollbars */
+.monaco-scrollable-element > .scrollbar {
+  opacity: 0 !important;
+  transition: opacity 400ms ease !important;
+}
+
+.monaco-scrollable-element:hover > .scrollbar {
+  opacity: 1 !important;
+  transition: opacity 400ms ease 1000ms !important;
+}
+
+/* Scrollbar hiding utilities */
+.no-scrollbar::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+.no-scrollbar {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
+/* Accessibility: Reduced motion & Reduced transparency */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .frosted-surface {
+    background-color: var(--surface-raised) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}

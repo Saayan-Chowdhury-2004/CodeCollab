@@ -1,0 +1,68 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: codecollab-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-codecollab}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-codecollab_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-codecollab}
+    ports:
+      - '127.0.0.1:5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-codecollab} -d ${POSTGRES_DB:-codecollab}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: codecollab-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      TRUST_PROXY_HOPS: 1
+      DATABASE_URL: postgresql://${POSTGRES_USER:-codecollab}:${POSTGRES_PASSWORD:-codecollab_dev_password}@postgres:5432/${POSTGRES_DB:-codecollab}
+      DB_SSL: 'false'
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET is required (see .env.example)}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET is required (see .env.example)}
+      OAUTH_STATE_SECRET: ${OAUTH_STATE_SECRET:-}
+      LOCAL_DEMO: ${LOCAL_DEMO:-true}
+      AUTH_TRANSPORT: ${AUTH_TRANSPORT:-bearer}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      COOKIE_SAME_SITE: lax
+      APP_URL: http://localhost:8080
+      CORS_ORIGINS: http://localhost:8080
+      OAUTH_ALLOWED_ORIGINS: http://localhost:8080
+      HEALTH_CHECK_SECRET: ${HEALTH_CHECK_SECRET:-}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      GITHUB_CALLBACK_URL: ${GITHUB_CALLBACK_URL:-http://localhost:8080/api/auth/github/callback}
+      MAIL_PROVIDER: ${MAIL_PROVIDER:-console}
+    # In production compose, backend is accessed only via the frontend nginx reverse proxy
+    expose:
+      - '4000'
+    command: >
+      sh -c "npx drizzle-kit migrate && npx tsx src/index.ts"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: codecollab-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - '8080:80'
+
+volumes:
+  postgres_data:

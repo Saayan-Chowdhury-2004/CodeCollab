@@ -1,0 +1,28 @@
+{
+  "name": "codecollab-monorepo",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "overrides": {
+    "dompurify": "3.4.17"
+  },
+  "scripts": {
+    "dev": "npm --workspace=@codecollab/backend run dev",
+    "start": "npm --workspace=@codecollab/backend run start",
+    "dev:backend": "npm --workspace=@codecollab/backend run dev",
+    "dev:frontend": "npm --workspace=@codecollab/frontend run dev",
+    "build": "npm --workspace=@codecollab/frontend run build && node scripts/assert-no-demo-creds.mjs",
+    "preview": "npm --workspace=@codecollab/frontend run preview",
+    "migrate": "npm --workspace=@codecollab/backend run migrate",
+    "seed": "npm --workspace=@codecollab/backend run seed",
+    "test": "npm --workspace=@codecollab/backend run test && npm --workspace=@codecollab/frontend run test",
+    "test:unit": "npm --workspace=@codecollab/backend run test:unit && npm --workspace=@codecollab/frontend run test",
+    "lint": "npm --workspace=@codecollab/backend run lint && npm --workspace=@codecollab/frontend run lint",
+    "check:env": "node scripts/check-env-examples.mjs",
+    "check:secrets": "node scripts/check-no-secrets.mjs"
+  }
+}

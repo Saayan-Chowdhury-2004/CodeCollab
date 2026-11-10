@@ -1,0 +1,72 @@
+name: CodeCollab CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  lint-typecheck-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: codecollab
+          POSTGRES_PASSWORD: codecollab_ci_password
+          POSTGRES_DB: codecollab_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://codecollab:codecollab_ci_password@localhost:5432/codecollab_test
+      DB_SSL: 'false'
+      JWT_ACCESS_SECRET: ${{ secrets.CI_JWT_ACCESS_SECRET || 'ci-ephemeral-jwt-access-secret-32chars' }}
+      JWT_REFRESH_SECRET: ${{ secrets.CI_JWT_REFRESH_SECRET || 'ci-ephemeral-jwt-refresh-secret-32chars' }}
+      AUTH_TRANSPORT: bearer
+      APP_URL: http://localhost:3000
+      CORS_ORIGINS: http://localhost:3000,http://localhost:5173
+      OAUTH_ALLOWED_ORIGINS: http://localhost:3000,http://localhost:5173
+      MAIL_PROVIDER: console
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Scan for committed secrets and tracked .env files
+        run: npm run check:secrets
+
+      - name: Check .env.example files match the code
+        run: npm run check:env
+
+      - name: Apply Drizzle migrations to PostgreSQL
+        run: npm run migrate
+
+      - name: Run TypeScript typecheck (lint)
+        run: npm run lint
+
+      - name: Build frontend bundle
+        run: npm run build
+
+      - name: Seed database
+        run: npm run seed
+
+      - name: Run Vitest + Supertest integration suite
+        run: npm test
