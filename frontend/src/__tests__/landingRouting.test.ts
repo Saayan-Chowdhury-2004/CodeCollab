@@ -6,11 +6,19 @@ import {
 } from '../utils/landingRouting.ts';
 
 describe('shouldShowLanding routing predicate', () => {
-  it('returns true for signed-out first-time visitors on root path', () => {
+  it('returns true for signed-out visitors on root path regardless of hasSeenLanding', () => {
     expect(
       shouldShowLanding({
         isSignedIn: false,
         hasSeenLanding: false,
+        path: '/',
+      })
+    ).toBe(true);
+
+    expect(
+      shouldShowLanding({
+        isSignedIn: false,
+        hasSeenLanding: true,
         path: '/',
       })
     ).toBe(true);
@@ -22,16 +30,6 @@ describe('shouldShowLanding routing predicate', () => {
         path: '',
       })
     ).toBe(true);
-  });
-
-  it('returns false for signed-out visitors who have chosen guest mode', () => {
-    expect(
-      shouldShowLanding({
-        isSignedIn: false,
-        hasSeenLanding: true,
-        path: '/',
-      })
-    ).toBe(false);
   });
 
   it('returns false for signed-in users on root path', () => {

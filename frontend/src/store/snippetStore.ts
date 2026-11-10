@@ -54,9 +54,9 @@ interface SnippetStoreState {
 
   setFilters: (partial: Partial<SnippetSearchFilters>, autoFetch?: boolean) => Promise<void>;
   resetFilters: () => Promise<void>;
-  fetchSnippets: (opts?: { append?: boolean }) => Promise<void>;
+  fetchSnippets: (opts?: { append?: boolean; autoSelect?: boolean }) => Promise<void>;
   fetchFacets: () => Promise<void>;
-  selectSnippet: (snippetId: string) => Promise<SnippetDetailDTO | null>;
+  selectSnippet: (snippetId: string | null) => Promise<SnippetDetailDTO | null>;
   refreshActiveSnippet: () => Promise<void>;
   createSnippet: (input: {
     title: string;
@@ -157,7 +157,7 @@ export const useSnippetStore = create<SnippetStoreState>((set, get) => ({
     await get().fetchSnippets({ append: false });
   },
 
-  fetchSnippets: async (opts = { append: false }) => {
+  fetchSnippets: async (opts = { append: false, autoSelect: false }) => {
     const { filters, nextCursor, items } = get();
     set({ isLoadingList: true, listError: null });
 
@@ -200,8 +200,8 @@ export const useSnippetStore = create<SnippetStoreState>((set, get) => ({
         isLoadingList: false,
       });
 
-      // Auto-select first snippet if none is currently active
-      if (!get().activeSnippet && merged.length > 0) {
+      // Auto-select first snippet if none is currently active and explicitly requested
+      if (opts.autoSelect && !get().activeSnippet && merged.length > 0) {
         await get().selectSnippet(merged[0].id);
       }
     } catch (err) {
@@ -221,6 +221,10 @@ export const useSnippetStore = create<SnippetStoreState>((set, get) => ({
   },
 
   selectSnippet: async (snippetId) => {
+    if (!snippetId) {
+      set({ activeSnippet: null, isLoadingSnippet: false, snippetError: null, diffResult: null });
+      return null;
+    }
     set({ isLoadingSnippet: true, snippetError: null, diffResult: null });
     try {
       const res = await apiFetch<{ snippet: SnippetDetailDTO }>(

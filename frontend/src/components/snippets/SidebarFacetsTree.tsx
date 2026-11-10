@@ -36,9 +36,6 @@ export const SidebarFacetsTree: React.FC = () => {
             <Folder className="w-3.5 h-3.5 text-[var(--ink-muted)]" />
             <span className="font-medium">Languages</span>
           </div>
-          <span className="text-[11px] font-mono text-[var(--ink-muted)]">
-            {facets.languages.length}
-          </span>
         </button>
 
         {isLanguagesOpen && (
@@ -66,9 +63,6 @@ export const SidebarFacetsTree: React.FC = () => {
                     />
                     <span className="truncate">{l.language}</span>
                   </div>
-                  <span className="min-w-5 h-5 px-1.5 rounded-full bg-[var(--surface-raised)] border border-[var(--border)] text-[10px] font-mono flex items-center justify-center shrink-0">
-                    {l.count}
-                  </span>
                 </button>
               );
             })}
@@ -95,9 +89,6 @@ export const SidebarFacetsTree: React.FC = () => {
             <Folder className="w-3.5 h-3.5 text-[var(--ink-muted)]" />
             <span className="font-medium">Tags</span>
           </div>
-          <span className="text-[11px] font-mono text-[var(--ink-muted)]">
-            {facets.tags.length}
-          </span>
         </button>
 
         {isTagsOpen && (
@@ -121,9 +112,6 @@ export const SidebarFacetsTree: React.FC = () => {
                     <Tag className="w-3 h-3 text-[var(--ink-muted)] shrink-0" />
                     <span className="truncate">#{t.name}</span>
                   </div>
-                  <span className="min-w-5 h-5 px-1.5 rounded-full bg-[var(--surface-raised)] border border-[var(--border)] text-[10px] font-mono flex items-center justify-center shrink-0">
-                    {t.count}
-                  </span>
                 </button>
               );
             })}

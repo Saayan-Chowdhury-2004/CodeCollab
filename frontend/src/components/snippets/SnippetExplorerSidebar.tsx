@@ -342,7 +342,7 @@ export const SnippetExplorerSidebar: React.FC<SnippetExplorerSidebarProps> = ({
         {/* Snippet List: Framed Inset Panel */}
         <div className="space-y-1.5 pt-2">
           <div className="text-[11px] font-semibold tracking-wider uppercase text-[var(--ink-muted)] px-2">
-            Results ({items.length})
+            Results{items.length > 0 ? ` (${items.length})` : ''}
           </div>
 
           <div className="shadow-inset rounded-[20px] bg-[var(--surface)]/25 border border-[var(--border)] p-1.5 space-y-1 overflow-hidden min-h-[160px] isolate transform-gpu">

@@ -2,24 +2,20 @@ const SEEN_LANDING_KEY = 'cc-seen-landing';
 
 export interface ShouldShowLandingParams {
   isSignedIn: boolean;
-  hasSeenLanding: boolean;
+  hasSeenLanding?: boolean;
   path: string;
 }
 
 /**
- * Pure predicate deciding whether the first-time landing page should be shown.
- * - Shown ONLY when the user is signed out, has not chosen guest mode, and is on the root path '/'.
- * - Deep links (/snippets/:id, /api/*, etc.) or signed-in sessions NEVER see the landing page.
+ * Predicate deciding whether the landing/dashboard page should be shown.
+ * - Always shown for anyone who is not logged in on the root path '/'.
+ * - Deep links (/snippets/:id, /api/*, etc.) or signed-in sessions show their respective view.
  */
 export function shouldShowLanding({
   isSignedIn,
-  hasSeenLanding,
   path,
 }: ShouldShowLandingParams): boolean {
   if (isSignedIn) {
-    return false;
-  }
-  if (hasSeenLanding) {
     return false;
   }
   const cleanPath = (path || '/').split('?')[0].split('#')[0];

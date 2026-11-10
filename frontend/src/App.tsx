@@ -55,11 +55,17 @@ export default function App() {
     path: window.location.pathname,
   });
 
-  // When user is authenticated, mark landing as seen
+  // When user is authenticated, mark landing as seen; when signed out, reset landing and active snippet
   useEffect(() => {
     if (user) {
       setHasSeenLanding(true);
       setHasSeenLandingState(true);
+    } else {
+      setHasSeenLanding(false);
+      setHasSeenLandingState(false);
+      if (window.location.pathname === '/' || window.location.pathname === '') {
+        selectSnippet(null);
+      }
     }
   }, [user]);
 
@@ -119,18 +125,22 @@ export default function App() {
     initRealtimeListeners();
     (async () => {
       await bootstrapAuth();
-      await Promise.all([
-        fetchSnippets({ append: false }),
-        fetchFacets(),
-      ]);
-      if (useAuthStore.getState().user) {
-        await fetchNotifications({ append: false });
-      }
+      const currentUser = useAuthStore.getState().user;
 
       // Deep-link support: /snippets/:id or ?snippet=:id
       const pathMatch = /^\/snippets\/([0-9a-fA-F-]{36})$/.exec(window.location.pathname);
       const searchParamSnippet = new URLSearchParams(window.location.search).get('snippet');
       const targetSnippetId = pathMatch ? pathMatch[1] : searchParamSnippet;
+
+      // Only auto-select first snippet if user is signed in and not opening a deep link
+      await Promise.all([
+        fetchSnippets({ append: false, autoSelect: Boolean(currentUser && !targetSnippetId) }),
+        fetchFacets(),
+      ]);
+
+      if (currentUser) {
+        await fetchNotifications({ append: false });
+      }
 
       if (targetSnippetId) {
         setActiveView('workspace');
@@ -151,6 +161,11 @@ export default function App() {
 
   // Sync active snippet to browser URL
   useEffect(() => {
+    // If not signed in and currently on the root path (landing page), never push snippet path to URL
+    if (!user && (window.location.pathname === '/' || window.location.pathname === '')) {
+      return;
+    }
+
     if (activeSnippet) {
       const targetPath = `/snippets/${activeSnippet.id}`;
       if (window.location.pathname !== targetPath) {
@@ -159,7 +174,7 @@ export default function App() {
     } else if (window.location.pathname.startsWith('/snippets/')) {
       window.history.pushState(null, '', '/');
     }
-  }, [activeSnippet?.id]);
+  }, [activeSnippet?.id, user]);
 
   const handleNavigateToSnippet = async (snippetId: string) => {
     setActiveView('workspace');

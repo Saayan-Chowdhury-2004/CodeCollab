@@ -57,51 +57,111 @@ flowchart TB
 
 ## 3. Setup & Running Instructions
 
-### Option A: Run with Docker Compose
+### Step 1: Generate JWT Secrets & Configure Environment
 
-**Development Environment (PostgreSQL Service Only)**:
-```bash
-docker compose -f docker-compose.dev.yml up -d postgres
-```
-This starts PostgreSQL 16 on `localhost:5432` with health checks, allowing local development of backend (`npm run dev:backend`) and frontend (`npm run dev:frontend`) on the host. `docker-compose.dev.yml` contains exclusively the PostgreSQL service.
+CodeCollab uses cryptographic HMAC-SHA256 tokens for session security:
+- **`JWT_ACCESS_SECRET`**: Signs short-lived access tokens (15-minute validity).
+- **`JWT_REFRESH_SECRET`**: Signs long-lived session refresh tokens (7-day validity).
 
-**Production Stack**:
-`docker compose up --build` works with only `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET` set. Compose reads them from a root `.env` file, which is git-ignored and must never be committed:
+> [!IMPORTANT]
+> **Secret Requirements:**
+> 1. Both secrets **must be at least 32 characters** long.
+> 2. `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET` **must be completely different values**.
+> 3. The backend server and Docker Compose will actively refuse to boot if either secret is empty, uses a placeholder, or if they match.
+
+#### 1. Copy the environment template
+At the root of the project:
 ```bash
 cp .env.example .env
-# Fill JWT_ACCESS_SECRET and JWT_REFRESH_SECRET with two different values, each generated with:
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+*(Never commit `.env` to Git; it is already ignored in `.gitignore`).*
+
+#### 2. Generate two distinct 32-byte (64-character) hex secrets
+Run the secret generator command **twice** in your terminal to obtain two unique strings:
+
+- **Using Node.js (Cross-platform — Windows, macOS, Linux):**
+  ```bash
+  node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+  ```
+- **Or using OpenSSL (macOS, Linux, Git Bash):**
+  ```bash
+  openssl rand -hex 32
+  ```
+- **Or using PowerShell (Windows native):**
+  ```powershell
+  -join ((1..32) | ForEach-Object { '{0:x2}' -f (Get-Random -Max 256) })
+  ```
+
+#### 3. Add the secrets to your `.env` file
+Open `.env` in your text editor and set the two generated strings:
+```env
+JWT_ACCESS_SECRET=paste_first_generated_secret_here
+JWT_REFRESH_SECRET=paste_second_different_secret_here
+```
+*(All other configuration variables in `.env` come pre-configured for local evaluation).*
+
+---
+
+### Step 2: What to Do After (Choose Your Run Mode)
+
+Once your secrets are set in `.env`, choose how you want to run CodeCollab:
+
+#### Option A: Run with Docker Compose (Recommended All-in-One)
+
+Build and start the complete production stack (PostgreSQL 16, Express Backend API, and Nginx Frontend) in one command:
+
+```bash
 docker compose up --build
 ```
-Compose stops with a clear message while either secret is empty. The app is then served at `http://localhost:8080`.
-- `AUTH_TRANSPORT` defaults to `bearer` for local runs. Cookie mode is opt-in by setting `AUTH_TRANSPORT=cookie` and `COOKIE_SECURE=true` in production (or `COOKIE_SECURE=false` for local non-TLS testing).
-- `OAUTH_STATE_SECRET` is derived (HMAC-SHA256 of `JWT_ACCESS_SECRET`) only when `LOCAL_DEMO=true`, which is the compose default. `LOCAL_DEMO` never relaxes the JWT secret checks. Real deployments must set `LOCAL_DEMO=false` and provide their own `OAUTH_STATE_SECRET`.
-- `backend/Dockerfile`: Multi-stage build producing a non-root production container running `sh -c "npx drizzle-kit migrate && npx tsx src/index.ts"` on port `4000`.
-- `frontend/Dockerfile`: Multi-stage build compiling static Vite assets and serving them through an `nginx:1.27-alpine` container (master process as root, worker processes unprivileged) on port `80` with SPA routing and security headers (CSP and Permissions-Policy).
 
-### Option B: Run Locally Without Docker
-1. **Install workspace dependencies**:
+- **Web Application**: Open [http://localhost:8080](http://localhost:8080) in your browser.
+- **REST API & WebSockets**: Served directly at [http://localhost:8080/api](http://localhost:8080/api) and [http://localhost:8080/socket.io](http://localhost:8080/socket.io).
+- **Interactive OpenAPI Documentation**: Swagger UI available at [http://localhost:8080/api/docs](http://localhost:8080/api/docs).
+- **Stopping the stack**: Press `Ctrl+C` or run `docker compose down`.
+
+**Configuration Notes for Docker Compose**:
+- `AUTH_TRANSPORT` defaults to `bearer` for local runs. Cookie mode is opt-in by setting `AUTH_TRANSPORT=cookie` and `COOKIE_SECURE=true` in production (or `COOKIE_SECURE=false` for local non-TLS testing).
+- `OAUTH_STATE_SECRET` is derived (HMAC-SHA256 of `JWT_ACCESS_SECRET`) only when `LOCAL_DEMO=true`, which is the compose default. Real deployments must set `LOCAL_DEMO=false` and provide their own `OAUTH_STATE_SECRET`.
+- `backend/Dockerfile`: Multi-stage build producing a non-root container running `sh -c "npx drizzle-kit migrate && npx tsx src/index.ts"` on port `4000`.
+- `frontend/Dockerfile`: Multi-stage build compiling static Vite assets and serving them through an `nginx:1.27-alpine` container on port `80` with SPA routing and security headers (CSP and Permissions-Policy).
+
+---
+
+#### Option B: Run Locally Without Docker (Hot-Reloading Dev Mode)
+
+1. **Start PostgreSQL**:
+   Start a local PostgreSQL server on port `5432`, or launch the lightweight dev container:
+   ```bash
+   docker compose -f docker-compose.dev.yml up -d postgres
+   ```
+2. **Install workspace dependencies**:
    ```bash
    npm install
    ```
-2. **Configure environment variables**:
+3. **Configure workspace environment files**:
    ```bash
-   cp .env.example .env
    cp backend/.env.example backend/.env
    cp frontend/.env.example frontend/.env
    ```
-   Set `DATABASE_URL=postgresql://user:pass@localhost:5432/codecollab` and set `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET` (generate strong secrets using `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`).
-3. **Apply Drizzle SQL migrations & seed sample data (development/test only)**:
+   *Make sure `backend/.env` also contains your generated `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET` and that `DATABASE_URL` matches your local database.*
+4. **Apply Drizzle SQL migrations & seed sample data**:
    ```bash
    npm run migrate
    npm run seed
    ```
-4. **Start backend and frontend**:
+5. **Start dev servers**:
    ```bash
-   npm run dev:backend
-   npm run dev:frontend
+   npm run dev
    ```
-   During development, the frontend Vite dev server (port 5173) automatically proxies `/api` and `/socket.io` to the backend (port 4000), avoiding cross-port cookie and CORS friction. Direct snippet routing (`/snippets/:id`) is fully supported.
+   *(Or start them individually via `npm run dev:backend` on port 4000 and `npm run dev:frontend` on port 5173).*
+   Open [http://localhost:5173](http://localhost:5173) in your browser. During development, Vite automatically proxies `/api` and `/socket.io` to the backend on port 4000.
+
+6. **Sign in or register an account**:
+   - Click **Register** on the top navigation to create a new user.
+   - Or log in with pre-seeded test accounts:
+     - **Admin**: `admin_alex` / `AdminPass123!`
+     - **Editor**: `elena_dev` / `EditorPass123!`
+     - **Viewer**: `victor_read` / `ViewerPass123!`
 
 ### Optional GitHub Login Setup
 GitHub OAuth authentication is entirely optional and zero-configuration by default:
