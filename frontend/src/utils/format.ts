@@ -1,12 +1,7 @@
 export function formatRoleLabel(role?: string): string {
   if (!role) return 'Guest';
-  const clean = role.toLowerCase().replace(/^role_/, '').replace(/^role:\s*/, '').trim();
+  const clean = role.toLowerCase().replace(/^role(_|:\s*)/, '').trim();
   if (clean === 'anonymous_viewer' || clean === 'anonymous') return 'Viewer';
-  if (clean === 'guest') return 'Guest';
-  if (clean === 'viewer') return 'Viewer';
-  if (clean === 'editor') return 'Editor';
-  if (clean === 'owner') return 'Owner';
-  if (clean === 'admin') return 'Admin';
   return clean.charAt(0).toUpperCase() + clean.slice(1);
 }
 

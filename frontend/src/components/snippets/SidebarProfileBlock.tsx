@@ -11,7 +11,6 @@ import {
 import { useAuthStore } from '../../store/authStore.ts';
 import { useSnippetStore } from '../../store/snippetStore.ts';
 import { useThemeStore } from '../../store/themeStore.ts';
-import { setHasSeenLanding } from '../../utils/landingRouting.ts';
 
 export interface SidebarProfileBlockProps {
   onOpenAuthModal?: (mode: 'login' | 'register') => void;
@@ -41,7 +40,6 @@ export const SidebarProfileBlock: React.FC<SidebarProfileBlockProps> = ({
   const handleLogout = async () => {
     setIsOpen(false);
     await logout();
-    setHasSeenLanding(true);
     window.location.href = '/';
   };
 

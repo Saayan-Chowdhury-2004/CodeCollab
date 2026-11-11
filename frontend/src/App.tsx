@@ -19,11 +19,7 @@ import {
 } from './components/auth/AuthModals.tsx';
 import { ActivityFeedView } from './components/activity/ActivityFeedView.tsx';
 import { AdminUsersView } from './components/admin/AdminUsersView.tsx';
-import {
-  getHasSeenLanding,
-  setHasSeenLanding,
-  shouldShowLanding,
-} from './utils/landingRouting.ts';
+import { shouldShowLanding } from './utils/landingRouting.ts';
 
 const LandingView = React.lazy(() => import('./components/landing/LandingView.tsx'));
 
@@ -37,7 +33,6 @@ export default function App() {
     dismissToast,
   } = useRealtimeStore();
 
-  const [hasSeenLanding, setHasSeenLandingState] = useState(() => getHasSeenLanding());
   const [activeView, setActiveView] = useState<ActiveMainView>('workspace');
   const [authModalMode, setAuthModalMode] = useState<
     'login' | 'register' | null
@@ -51,23 +46,15 @@ export default function App() {
 
   const showLanding = shouldShowLanding({
     isSignedIn: Boolean(user),
-    hasSeenLanding,
     path: window.location.pathname,
   });
 
-  // When user is authenticated, mark landing as seen; when signed out, reset landing and active snippet
+  // When signed out on root path, clear active snippet
   useEffect(() => {
-    if (user) {
-      setHasSeenLanding(true);
-      setHasSeenLandingState(true);
-    } else {
-      setHasSeenLanding(false);
-      setHasSeenLandingState(false);
-      if (window.location.pathname === '/' || window.location.pathname === '') {
-        selectSnippet(null);
-      }
+    if (!user && (window.location.pathname === '/' || window.location.pathname === '')) {
+      selectSnippet(null);
     }
-  }, [user]);
+  }, [user, selectSnippet]);
 
   // Manage body scroll: landing page allows full window scroll; workspace contains its own panel scroll
   useEffect(() => {
@@ -183,8 +170,6 @@ export default function App() {
 
   const handleHomeClick = () => {
     if (!user) {
-      setHasSeenLanding(false);
-      setHasSeenLandingState(false);
       if (window.location.pathname !== '/') {
         window.history.pushState(null, '', '/');
       }

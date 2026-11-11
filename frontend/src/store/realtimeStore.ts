@@ -87,6 +87,25 @@ interface RealtimeStoreState {
 
 let listenersInitialized = false;
 
+async function loadActivities(
+  endpoint: string,
+  filter: string | null,
+  cursor: string | null,
+  append: boolean,
+  current: ActivityDTO[]
+) {
+  const params = new URLSearchParams({ limit: '15' });
+  if (filter) params.set('type', filter);
+  if (append && cursor) params.set('cursor', cursor);
+  const data = await apiFetch<PaginatedResult<ActivityDTO>>(`${endpoint}?${params.toString()}`);
+  const cleanItems = data.items.filter((act) => !isVirtualOrDevUser(act.actor?.username));
+  return {
+    items: append ? [...current, ...cleanItems] : cleanItems,
+    nextCursor: data.nextCursor,
+    hasMore: data.hasMore,
+  };
+}
+
 export const useRealtimeStore = create<RealtimeStoreState>((set, get) => ({
   isConnected: false,
   roomSnippetId: null,
@@ -369,22 +388,8 @@ export const useRealtimeStore = create<RealtimeStoreState>((set, get) => ({
     const { globalActivities, globalNextCursor, activityTypeFilter } = get();
     set({ isLoadingActivities: true });
     try {
-      const params = new URLSearchParams({ limit: '15' });
-      if (activityTypeFilter) params.set('type', activityTypeFilter);
-      if (opts.append && globalNextCursor) params.set('cursor', globalNextCursor);
-
-      const data = await apiFetch<PaginatedResult<ActivityDTO>>(
-        `/api/activities/global?${params.toString()}`
-      );
-      const cleanItems = data.items.filter((act) => !isVirtualOrDevUser(act.actor?.username));
-      set({
-        globalActivities: opts.append
-          ? [...globalActivities, ...cleanItems]
-          : cleanItems,
-        globalNextCursor: data.nextCursor,
-        globalHasMore: data.hasMore,
-        isLoadingActivities: false,
-      });
+      const res = await loadActivities('/api/activities/global', activityTypeFilter, globalNextCursor, Boolean(opts.append), globalActivities);
+      set({ globalActivities: res.items, globalNextCursor: res.nextCursor, globalHasMore: res.hasMore, isLoadingActivities: false });
     } catch {
       set({ isLoadingActivities: false });
     }
@@ -394,22 +399,8 @@ export const useRealtimeStore = create<RealtimeStoreState>((set, get) => ({
     const { snippetActivities, snippetNextCursor, activityTypeFilter } = get();
     set({ isLoadingActivities: true });
     try {
-      const params = new URLSearchParams({ limit: '15' });
-      if (activityTypeFilter) params.set('type', activityTypeFilter);
-      if (opts.append && snippetNextCursor) params.set('cursor', snippetNextCursor);
-
-      const data = await apiFetch<PaginatedResult<ActivityDTO>>(
-        `/api/activities/snippets/${snippetId}?${params.toString()}`
-      );
-      const cleanItems = data.items.filter((act) => !isVirtualOrDevUser(act.actor?.username));
-      set({
-        snippetActivities: opts.append
-          ? [...snippetActivities, ...cleanItems]
-          : cleanItems,
-        snippetNextCursor: data.nextCursor,
-        snippetHasMore: data.hasMore,
-        isLoadingActivities: false,
-      });
+      const res = await loadActivities(`/api/activities/snippets/${snippetId}`, activityTypeFilter, snippetNextCursor, Boolean(opts.append), snippetActivities);
+      set({ snippetActivities: res.items, snippetNextCursor: res.nextCursor, snippetHasMore: res.hasMore, isLoadingActivities: false });
     } catch {
       set({ isLoadingActivities: false });
     }
@@ -419,22 +410,8 @@ export const useRealtimeStore = create<RealtimeStoreState>((set, get) => ({
     const { userActivities, userNextCursor, activityTypeFilter } = get();
     set({ isLoadingActivities: true });
     try {
-      const params = new URLSearchParams({ limit: '15' });
-      if (activityTypeFilter) params.set('type', activityTypeFilter);
-      if (opts.append && userNextCursor) params.set('cursor', userNextCursor);
-
-      const data = await apiFetch<PaginatedResult<ActivityDTO>>(
-        `/api/activities/users/${userId}?${params.toString()}`
-      );
-      const cleanItems = data.items.filter((act) => !isVirtualOrDevUser(act.actor?.username));
-      set({
-        userActivities: opts.append
-          ? [...userActivities, ...cleanItems]
-          : cleanItems,
-        userNextCursor: data.nextCursor,
-        userHasMore: data.hasMore,
-        isLoadingActivities: false,
-      });
+      const res = await loadActivities(`/api/activities/users/${userId}`, activityTypeFilter, userNextCursor, Boolean(opts.append), userActivities);
+      set({ userActivities: res.items, userNextCursor: res.nextCursor, userHasMore: res.hasMore, isLoadingActivities: false });
     } catch {
       set({ isLoadingActivities: false });
     }

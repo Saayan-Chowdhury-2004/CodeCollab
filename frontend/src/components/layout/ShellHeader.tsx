@@ -15,7 +15,6 @@ import { useAuthStore } from '../../store/authStore.ts';
 import { useRealtimeStore } from '../../store/realtimeStore.ts';
 import { useSnippetStore } from '../../store/snippetStore.ts';
 import { formatRoleLabel } from '../../utils/format.ts';
-import { setHasSeenLanding } from '../../utils/landingRouting.ts';
 
 export interface ShellHeaderProps {
   onOpenAuthModal: (mode: 'login' | 'register') => void;
@@ -70,7 +69,6 @@ export const ShellHeader: React.FC<ShellHeaderProps> = ({
   const handleLogout = async () => {
     setShowUserDropdown(false);
     await logout();
-    setHasSeenLanding(true);
     window.location.href = '/';
   };
 

@@ -1,5 +1,6 @@
 import { relations, sql } from 'drizzle-orm';
 import {
+  type AnyPgColumn,
   boolean,
   customType,
   index,
@@ -186,7 +187,9 @@ export const comments = pgTable(
     authorId: uuid('author_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    parentId: uuid('parent_id'),
+    parentId: uuid('parent_id').references((): AnyPgColumn => comments.id, {
+      onDelete: 'cascade',
+    }),
     lineNumber: integer('line_number').notNull(),
     versionId: uuid('version_id')
       .notNull()

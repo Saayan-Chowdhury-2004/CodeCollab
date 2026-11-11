@@ -1,9 +1,5 @@
-import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
-import {
-  shouldShowLanding,
-  getHasSeenLanding,
-  setHasSeenLanding,
-} from '../utils/landingRouting.ts';
+import { describe, it, expect } from 'vitest';
+import { shouldShowLanding } from '../utils/landingRouting.ts';
 
 describe('shouldShowLanding routing predicate', () => {
   it('returns true for signed-out visitors on root path regardless of hasSeenLanding', () => {
@@ -92,75 +88,5 @@ describe('shouldShowLanding routing predicate', () => {
         path: '/#features',
       })
     ).toBe(true);
-  });
-});
-
-describe('landing storage flag helpers', () => {
-  const store = new Map<string, string>();
-  const mockStorage: Storage = {
-    length: 0,
-    clear: () => store.clear(),
-    getItem: (k: string) => store.get(k) ?? null,
-    setItem: (k: string, v: string) => {
-      store.set(k, String(v));
-    },
-    removeItem: (k: string) => {
-      store.delete(k);
-    },
-    key: (i: number) => Array.from(store.keys())[i] ?? null,
-  };
-
-  beforeAll(() => {
-    if (typeof globalThis.window === 'undefined') {
-      (globalThis as unknown as { window: unknown }).window = {
-        localStorage: mockStorage,
-      };
-    } else {
-      Object.defineProperty(window, 'localStorage', {
-        value: mockStorage,
-        configurable: true,
-        writable: true,
-      });
-    }
-  });
-
-  beforeEach(() => {
-    store.clear();
-  });
-
-  it('reads and writes seen flag reliably', () => {
-    expect(getHasSeenLanding()).toBe(false);
-    setHasSeenLanding(true);
-    expect(getHasSeenLanding()).toBe(true);
-    setHasSeenLanding(false);
-    expect(getHasSeenLanding()).toBe(false);
-  });
-
-  it('gracefully handles localStorage failures without crashing', () => {
-    const errorStorage: Storage = {
-      length: 0,
-      clear: () => {},
-      getItem: () => {
-        throw new Error('SecurityError');
-      },
-      setItem: () => {
-        throw new Error('QuotaExceeded');
-      },
-      removeItem: () => {
-        throw new Error('SecurityError');
-      },
-      key: () => null,
-    };
-
-    (globalThis as unknown as { window: { localStorage: Storage } }).window.localStorage =
-      errorStorage;
-
-    expect(() => getHasSeenLanding()).not.toThrow();
-    expect(getHasSeenLanding()).toBe(false);
-
-    expect(() => setHasSeenLanding(true)).not.toThrow();
-
-    (globalThis as unknown as { window: { localStorage: Storage } }).window.localStorage =
-      mockStorage;
   });
 });

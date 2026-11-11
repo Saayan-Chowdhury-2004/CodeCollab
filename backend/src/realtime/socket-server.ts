@@ -85,6 +85,12 @@ function extractHandshakeToken(socket: Socket): string | null {
     return headerAuth.slice(7).trim();
   }
 
+  const cookie = socket.handshake.headers.cookie;
+  if (typeof cookie === 'string') {
+    const match = cookie.match(/(?:^|;\s*)cc_access_token=([^;]+)/);
+    if (match) return decodeURIComponent(match[1]);
+  }
+
   return null;
 }
 

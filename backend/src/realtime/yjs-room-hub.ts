@@ -466,7 +466,6 @@ export class YjsRoomHub {
 
     const currentContent = this.getRoomContent(room);
     const yjsStateBase64 = this.encodeRoomStateBase64(room);
-    room.dirty = false;
 
     await db
       .update(snippets)
@@ -481,6 +480,8 @@ export class YjsRoomHub {
         `,
       })
       .where(eq(snippets.id, snippetId));
+
+    room.dirty = false;
   }
 
   public async saveVersionSnapshot(
